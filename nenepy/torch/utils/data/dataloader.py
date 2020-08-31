@@ -2,7 +2,7 @@ from torch.utils.data import DataLoader as TorchDataLoader, Dataset
 from torch.utils.data import RandomSampler, SequentialSampler
 from tqdm import tqdm
 
-from nenepy.torch.interfaces.mode import Mode
+from nenepy.torch.interfaces import Mode
 from nenepy.torch.utils.data import DesignatedIterativeBatchSampler
 
 
