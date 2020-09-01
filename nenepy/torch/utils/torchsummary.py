@@ -1,4 +1,5 @@
 import inspect
+import sys
 from collections import OrderedDict
 
 import numpy as np
@@ -8,13 +9,14 @@ import torch.nn as nn
 
 class Block:
 
-    def __init__(self, index):
+    def __init__(self):
         self.module = None
         self.module_in = None
         self.module_out = None
         self.blocks = []
         self.kwargs = []
-        self.index = index
+        self.input_kwargs = None
+        self.output_kwargs = None
         self.depth = 0
         self.bottom = False
         self.n_params = 0
@@ -27,21 +29,66 @@ class Block:
     def add(self, module):
         self.blocks.append(module)
 
-    def has_bottom_children(self):
-        if len(self.blocks) > 0:
-            for block in self.blocks:
-                if block.bottom:
-                    return True
+    def input_kwargs_str(self):
+        out = OrderedDict()
+        if len(self.input_kwargs) == 1:
+            out[""] = f"{list(self.input_kwargs.values())[0]}"
+        else:
+            for arg, value in self.input_kwargs.items():
+                out[f"{arg}: "] = f"{value}"
 
-        return False
+        return out
 
-    def get_depth(self):
-        def recursive(b, d):
-            if len(b.blocks) > 0:
-                d = max(d, *[recursive(bb, d + 1) for bb in b.blocks])
-            return d
+    def output_kwargs_str(self):
+        out = OrderedDict()
+        if len(self.input_kwargs) == 1:
+            out[""] = list(self.input_kwargs.values())[0]
+        else:
+            for arg, value in self.input_kwargs.items():
+                out[f"{arg}"] = f"{value}"
 
-        return recursive(self, 0)
+        return out
+
+
+class InputSizeStr:
+
+    def __init__(self, tensor):
+
+        self.string = ""
+        self.is_tensor = False
+
+        if isinstance(tensor, torch.Tensor):
+            self.is_tensor = True
+            self.string = list(map(str, list(tensor.size())))
+
+        elif isinstance(tensor, (list, tuple)):
+            self.is_tensor = False
+            v = tensor[0]
+            if isinstance(v, torch.Tensor):
+                self.string = f"{str(list(v.size()))} * {len(tensor)}"
+            else:
+                self.string = f"{v}".replace("torch.Size", "")
+
+    def tensors_to_str(self, each_max_dims):
+        if self.is_tensor:
+            shape = [f"{self.string[i]:>{each_max_dims[i]}}" for i in range(len(self.string))]
+            return f"[{', '.join(shape)}]"
+        else:
+            return self.string
+
+    def __str__(self):
+        return str(self.string)
+
+    @property
+    def tensors(self):
+        return self.string
+
+    @property
+    def n_dims(self):
+        return len(self.string)
+
+    def __len__(self):
+        return len(str(self.string))
 
 
 class Summary:
@@ -69,14 +116,12 @@ class Summary:
         self.ordered_blocks = []
 
     def __call__(self, input_size, *args, **kwargs):
-        device = self.device.lower()
-
         # multiple inputs to the network
         if isinstance(input_size, tuple):
             input_size = [input_size]
 
         # batch_size of 2 for batchnorm
-        x = [torch.rand(self.batch_size, *in_size).to(device) for in_size in input_size]
+        x = [torch.rand(self.batch_size, *in_size).to(self.device) for in_size in input_size]
         # print(type(x[0]))
 
         # create properties
@@ -149,55 +194,79 @@ class Summary:
         for root in self.roots:
             recursive(root, 0)
 
-    def get_length(self, texts):
-        lengths = [0] * len(texts)
-        for i, text in enumerate(texts):
-            if isinstance(texts, str):
-                lengths[i] = len(text)
-            else:
-                lengths[i] = max([len(t) for t in text])
-
-        return max(lengths)
-
     def get_max_directory_structure_length(self):
-        def recursive(block):
+        max_length = 0
+        for block in self.ordered_blocks:
             index_space = self.space(block.depth)
-            length = len(f"{index_space}    {block.name}    ")
+            text = f"{index_space}    {block.name}    "
+            max_length = max(max_length, len(text))
 
-            for b in block.blocks:
-                length = max(length, recursive(b))
+        return max_length
 
-            return length
+    def get_input_max_tensor_dims(self):
+        max_dims = 0
+        for block in self.ordered_blocks:
+            for size_str in block.input_kwargs.values():
+                if size_str.is_tensor:
+                    max_dims = max(max_dims, size_str.n_dims)
 
-        return max([recursive(b) for b in self.roots])
+        return max_dims
 
-    def get_max_input_length(self):
-        def recursive(block):
-            shapes = self.get_dict_shape_str(block.kwargs)
-            if len(shapes) > 1:
-                length = max([len(f"{arg}: {str(shape)}") for arg, shape in shapes.items()])
+    def get_output_max_tensor_dims(self):
+        max_dims = 0
+        for block in self.ordered_blocks:
+            for size_str in block.output_kwargs.values():
+                if size_str.is_tensor:
+                    max_dims = max(max_dims, size_str.n_dims)
 
-            else:
-                length = max([len(str(shape)) for shape in shapes.values()])
+        return max_dims
 
-            for b in block.blocks:
-                length = max(length, recursive(b))
+    def get_input_each_dim_max_size(self, max_dims):
+        dims = [0 for _ in range(max_dims)]
+        for block in self.ordered_blocks:
+            for size_str in block.input_kwargs.values():
+                if size_str.is_tensor:
+                    tensors = size_str.tensors
+                    for i in range(len(tensors)):
+                        dims[i] = max(dims[i], len(tensors[i]))
 
-            return length
+        return dims
 
-        return max([recursive(b) for b in self.roots])
+    def get_output_each_dim_max_size(self, max_dims):
+        dims = [0 for _ in range(max_dims)]
+        for block in self.ordered_blocks:
+            for size_str in block.output_kwargs.values():
+                if size_str.is_tensor:
+                    tensors = size_str.tensors
+                    for i in range(len(tensors)):
+                        dims[i] = max(dims[i], len(tensors[i]))
 
-    def get_max_output_length(self):
-        def recursive(block):
-            shapes = self.get_list_shape_str(block.module_out)
-            length = max([len(str(shape)) for shape in shapes])
+        return dims
 
-            for b in block.blocks:
-                length = max(length, recursive(b))
+    def get_max_input_length(self, each_max_dims):
+        max_length = 0
+        for block in self.ordered_blocks:
+            length = max([len(size_str.tensors_to_str(each_max_dims)) for size_str in block.input_kwargs.values()])
+            max_length = max(max_length, length)
 
-            return length
+        return max_length
 
-        return max([recursive(b) for b in self.roots])
+    def get_max_input_args_length(self):
+
+        max_length = 0
+        for block in self.ordered_blocks:
+            length = max([len(f"{arg}: ") for arg in block.input_kwargs.keys()])
+            max_length = max(max_length, length)
+
+        return max_length
+
+    def get_max_output_length(self, each_max_dims):
+        max_length = 0
+        for block in self.ordered_blocks:
+            length = max([len(size_str.tensors_to_str(each_max_dims)) for size_str in block.output_kwargs.values()])
+            max_length = max(max_length, length)
+
+        return max_length
 
     def get_max_param_length(self):
         def recursive(block):
@@ -214,37 +283,68 @@ class Summary:
 
         return max([recursive(b) for b in self.roots])
 
+    def to_string(self, block, input_each_max_dims, output_each_max_dims):
+        """
+
+        Args:
+            block (Block):
+
+        """
+        name = f"{block.name}"
+
+        input_texts = []
+        input_args_texts = []
+
+        for arg, size_str in block.input_kwargs.items():
+            input_texts.append(f"{size_str.tensors_to_str(input_each_max_dims)}")
+            if len(block.input_kwargs) > 1:
+                input_args_text = f"{arg}: "
+            else:
+                input_args_text = ""
+
+            input_args_texts.append(input_args_text)
+
+        outputs = [f"{size_str.tensors_to_str(output_each_max_dims)}" for size_str in block.output_kwargs.values()]
+        param_text = str(block.n_params)
+        return (name, (input_texts, input_args_texts), outputs, [param_text])
+
     def name_texts(self, space_size=4):
+        input_max_tensor_dims = self.get_input_max_tensor_dims()
+        input_each_max_dims = self.get_input_each_dim_max_size(input_max_tensor_dims)
+
+        output_max_tensor_dims = self.get_output_max_tensor_dims()
+        output_each_max_dims = self.get_output_each_dim_max_size(output_max_tensor_dims)
+
         name_max_length = self.get_max_directory_structure_length()
-        input_max_length = self.get_max_input_length()
-        output_max_length = self.get_max_output_length()
+        input_max_length = self.get_max_input_length(input_each_max_dims)
+        input_max_args_length = self.get_max_input_args_length()
+        output_max_length = self.get_max_output_length(output_each_max_dims)
         param_max_length = self.get_max_param_length()
+
+        total_length = name_max_length + input_max_length + input_max_args_length + output_max_length + param_max_length + 3 * 6
+        line = "-│-".join([f"{'-' * name_max_length}", f"{'-' * (input_max_length + input_max_args_length)}", f"{'-' * (output_max_length)}"]) + "-│ "
+
+        indexes_str = " │ ".join([f"{'Network Architecture':^{name_max_length}}", f"{'Input':^{input_max_length + input_max_args_length}}",
+                                  f"{'Output':^{output_max_length}}"]) + " │ "
+        print(line)
+        print(indexes_str)
+        print(line)
 
         def recursive(root, append="", is_last=False):
             length = len(root.blocks)
-            lines = []
+
+            lines, inputs, outputs, params = self.to_string(root, input_each_max_dims, output_each_max_dims)
+
             if is_last:
-                name = f"{append}└ {root.name}"
-                lines.append(name)
-            else:
-                name = f"{append}├ {root.name}"
-                lines.append(name)
-
-            input_shapes = self.get_dict_shape_str(root.kwargs)
-            input_texts = []
-            for arg, value in input_shapes.items():
-                if len(input_shapes) > 1:
-                    input_text = f"{arg}: {value}"
-                    input_texts.append(input_text)
+                if root.depth == 0:
+                    lines = [f"  {lines}"]
                 else:
-                    input_text = f"{value}"
-                    input_texts.append(input_text)
+                    lines = [f"{append}└ {lines}"]
+            else:
+                lines = [f"{append}├ {lines}"]
 
-            output_shapes = self.get_list_shape_str(root.module_out)
-            output_texts = []
-            for value in output_shapes:
-                input_text = f"{value}"
-                output_texts.append(input_text)
+            input_texts, input_args_texts = inputs
+            output_texts = outputs
 
             if is_last:
                 append = append + "     "
@@ -254,39 +354,50 @@ class Summary:
             max_length = max(len(input_texts), len(output_texts))
             lines += [append + "│    "] * (max_length - len(lines))
             input_texts += [""] * (max_length - len(input_texts))
+            input_args_texts += [""] * (max_length - len(input_args_texts))
             output_texts += [""] * (max_length - len(output_texts))
+            params += [""] * (max_length - len(params))
 
             for i in range(max(len(lines), len(input_texts), len(output_texts))):
                 name_text = lines[i]
                 input_text = input_texts[i]
+                input_args_text = input_args_texts[i]
                 output_text = output_texts[i]
-                param_text = str(root.n_params)
+                param_text = params[i]
                 n_params = root.n_params
                 per = (n_params / self.total_params) * 100
 
                 name_text = f"{name_text:<{name_max_length}}"
                 input_text = f"{input_text:<{input_max_length}}"
+                input_args_text = f"{input_args_text:>{input_max_args_length}}"
                 output_text = f"{output_text:<{output_max_length}}"
                 if n_params == 0:
                     param_text = f"{param_text:>{param_max_length}}"
                 else:
                     param_text = f"{param_text:>{param_max_length}} ({per:.1f}%)"
 
-                print(name_text + " │ " + input_text + " │ " + output_text + " │ " + param_text)
+                print(f"{name_text} │ {input_args_text}{input_text} │ {output_text} │ {param_text}")
 
             if len(input_texts) > 1 or len(output_texts) > 1:
                 empty = ""
-                name_text = f"{append + '│    ':<{name_max_length}}"
+                if len(root.blocks) > 0:
+                    name_text = f"{append + '│    ':<{name_max_length}}"
+                else:
+                    name_text = f"{append + '     ':<{name_max_length}}"
                 input_text = f"{empty:>{input_max_length}}"
+                input_args_text = f"{empty:>{input_max_args_length}}"
                 output_text = f"{empty:>{output_max_length}}"
-                print(name_text + " │-" + input_text + "-│-" + output_text + "-│")
+                param_text = f"{empty:>{param_max_length}}"
+                print(f"{name_text} │-{input_args_text}{input_text}-│-{output_text}-│ {param_text}")
 
             if is_last and len(root.blocks) == 0:
                 empty = ""
                 name_text = f"{append:<{name_max_length}}"
                 input_text = f"{empty:>{input_max_length}}"
+                input_args_text = f"{empty:>{input_max_args_length}}"
                 output_text = f"{empty:>{output_max_length}}"
-                print(name_text + " │ " + input_text + " │ " + output_text + " │")
+                param_text = f"{empty:>{param_max_length}}"
+                print(f"{name_text} │ {input_args_text}{input_text} │ {output_text} │ {param_text}")
 
             for i, block in enumerate(root.blocks):
                 if i == length - 1:
@@ -302,6 +413,9 @@ class Summary:
 
         for root in self.roots:
             recursive(root, is_last=True)
+
+    def print_line(self, block, directory_text, input_args_text, input_size_text, output_size_text, param_text):
+        print(f"{directory_text} │ {input_args_text}{input_size_text} │ {output_size_text} │ {param_text}")
 
     def input_texts(self, block):
         lines = []
@@ -353,8 +467,7 @@ class Summary:
         Returns:
 
         """
-        self.n_blocks += 1
-        block = Block(index=self.n_blocks)
+        block = Block()
         if len(self.blocks) == 0:
             self.roots.append(block)
 
@@ -367,14 +480,23 @@ class Summary:
 
         block = self.blocks.pop(-1)
         block.module = module
-        block.module_in = module_in
-        block.module_out = module_out
-        kwargs = OrderedDict()
-        keys = list(inspect.signature(module.forward).parameters.keys())
-        for i in range(len(module_in)):
-            kwargs[keys[i]] = module_in[i]
+        input_kwargs = OrderedDict()
+        parameter_dict = OrderedDict(inspect.signature(module.forward).parameters.items())
+        for i, (key, value) in enumerate(parameter_dict.items()):
+            if i < len(module_in):
+                if value.kind == inspect.Parameter.VAR_POSITIONAL:
+                    input_kwargs[key] = module_in[i:-1]
+                else:
+                    input_kwargs[key] = module_in[i]
+            else:
+                break
 
-        block.kwargs = kwargs
+        output_kwargs = OrderedDict()
+        for i, out in enumerate(module_out):
+            output_kwargs[f"{i}"] = out
+
+        block.input_kwargs = self.tensors_to_size_str(input_kwargs)
+        block.output_kwargs = self.tensors_to_size_str(output_kwargs)
 
         if len(self.blocks) > 0:
             self.blocks[-1].add(block)
@@ -388,51 +510,10 @@ class Summary:
         block.n_params = n_params
 
     @staticmethod
-    def get_dict_shape_str(kwargs):
+    def tensors_to_size_str(tensors):
         out = OrderedDict()
-        for arg, value in kwargs.items():
-            if isinstance(value, torch.Tensor):
-                out[arg] = str(list(value.size()))
-
-            elif isinstance(value, (list, tuple)):
-                if len(value) > 0:
-                    out[arg] = f"{str(list(value[0].size()))} * {len(value)}"
-
-            elif isinstance(value, dict):
-                if len(value) > 0:
-                    for k, v in value.items():
-                        out[f"{arg}-{k}"] = f"{str(list(v[0].size()))} * {len(value)}"
-
-        return out
-
-    @staticmethod
-    def get_list_shape_str(tensors):
-        out = []
-        for value in tensors:
-            if isinstance(value, torch.Tensor):
-                out.append(str(list(value.size())))
-
-            elif isinstance(value, (list, tuple)):
-                t = []
-                for v in value:
-                    if isinstance(v, torch.Tensor):
-                        t.append(str(list(v.size())))
-                    else:
-                        t.append(str(v).replace("torch.Size", ""))
-
-                if len(set(t)) == 1:
-                    out.append(f"{t[0]} * {len(value)}")
-                else:
-                    out.append(f"{t} * {len(value)}")
-
-            elif isinstance(value, dict):
-                if len(value) > 0:
-                    for k, v in value.items():
-                        if isinstance(v, torch.Tensor):
-                            out.append(f"{k}: {str(list(v.size()))}")
-                        else:
-                            out.append(f"{k}: {str(v.__class__)}")
-
+        for key, value in tensors.items():
+            out[key] = InputSizeStr(value)
         return out
 
     @staticmethod

@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from inspect import signature
+from pathlib import Path
 
 import numpy as np
 
@@ -13,7 +14,7 @@ from nenepy.utils.dictionary import ListDict
 
 class AbstractInterface(metaclass=ABCMeta):
 
-    def __init__(self, mode, model, log_dir, logger, save_interval=10):
+    def __init__(self, mode, model, logger, save_interval=10):
         """
 
         Args:
@@ -33,8 +34,8 @@ class AbstractInterface(metaclass=ABCMeta):
         self.model = model
 
         # ----- Log ----- #
-        self.board_writer = TensorBoardWriter(log_dir=log_dir.joinpath(mode.name))
         self.logger = logger
+        self.board_writer = TensorBoardWriter(log_dir=Path(logger.log_dir).joinpath(mode.name))
 
         # ----- etc ----- #
         self.timer = Timer()
@@ -105,7 +106,7 @@ class AbstractInterface(metaclass=ABCMeta):
         self.logger[self.log_average_time_key] = self.logger[self.log_time_key] / self.epoch
 
         if (self.mode is Mode.TRAIN) and (self.epoch % self.save_interval == 0):
-            self.logger.save(file_name="log.yaml")
+            self.logger.save()
             self.model.save_weight()
             print(f"Model and Log Saved. Next Save Epoch: {(self.epoch + self.save_interval)}")
 

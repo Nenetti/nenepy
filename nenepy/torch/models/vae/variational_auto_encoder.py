@@ -2,10 +2,10 @@ import torch
 from torch import nn
 
 
-class StandardVAE(nn.Module):
+class VariationalAutoEncoder(nn.Module):
 
     def __init__(self, encoder, decoder):
-        super(StandardVAE, self).__init__()
+        super(VariationalAutoEncoder, self).__init__()
 
         self.encoder = encoder
         self.decoder = decoder

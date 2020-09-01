@@ -14,7 +14,7 @@ class ReconstructionError(nn.BCELoss):
         Returns:
 
         """
-        if target.grad is None:
+        if target.grad is not None:
             raise ValueError("Target tensor is not allowed to have a gradient.")
 
         return super(ReconstructionError, self).forward(input, target)

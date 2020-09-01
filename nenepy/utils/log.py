@@ -18,7 +18,7 @@ class Log(AttrDict):
 
     """
 
-    def __init__(self, log_dir, is_load):
+    def __init__(self, log_dir, log_file="log.yaml", is_load=True):
         """
 
         Args:
@@ -28,14 +28,29 @@ class Log(AttrDict):
         """
         super(Log, self).__init__()
 
-        log_dir = Path(log_dir)
+        # if log_dir.exists() and not is_load:
+        #     shutil.rmtree(log_dir)
 
-        if log_dir.exists() and not is_load:
-            shutil.rmtree(log_dir)
+        self._log_dir = Path(log_dir)
+        self._file_name = log_file
 
-        log_dir.mkdir(parents=True, exist_ok=True)
+        if is_load:
+            if self._log_dir.exists():
+                self.load()
+            else:
+                raise FileNotFoundError(self._log_dir)
 
-        self.log_dir = Path(log_dir)
+        else:
+            if not self._log_dir.exists():
+                self._log_dir.mkdir(parents=True)
+
+    @property
+    def log_dir(self):
+        return self._log_dir
+
+    @property
+    def file_name(self):
+        return self._file_name
 
     # ==============================================================================
     #
@@ -43,7 +58,7 @@ class Log(AttrDict):
     #
     # ==============================================================================
 
-    def load(self, file_name, file_dir=None):
+    def load(self, file_dir=None, file_name=None):
         """
 
         Args:
@@ -53,13 +68,16 @@ class Log(AttrDict):
         """
         # ----- Initialize ----- #
         if file_dir is None:
-            file_dir = self.log_dir
+            file_dir = self._log_dir
+
+        if file_name is None:
+            file_name = self._file_name
 
         # ----- Load ----- #
         with open(Path(file_dir).joinpath(file_name), "r") as f:
             self.merge(AttrDict(yaml.load(f)))
 
-    def save(self, file_name, file_dir=None):
+    def save(self, file_dir=None, file_name=None):
         """
 
         Args:
@@ -69,7 +87,10 @@ class Log(AttrDict):
         """
         # ----- Initialize ----- #
         if file_dir is None:
-            file_dir = self.log_dir
+            file_dir = self._log_dir
+
+        if file_name is None:
+            file_name = self._file_name
 
         # ----- Write and Output ----- #
         with open(Path(file_dir).joinpath(file_name), "w") as f:

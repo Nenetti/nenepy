@@ -11,7 +11,7 @@ from nenepy.torch.interfaces import Mode
 
 class AbstractModel(metaclass=ABCMeta):
 
-    def __init__(self, device, weights_dir, optimizer_kwargs={}):
+    def __init__(self, device, weights_path, optimizer_kwargs={}):
         """
 
         Args:
@@ -25,7 +25,7 @@ class AbstractModel(metaclass=ABCMeta):
         self.optimizer = None
         self.scheduler = None
 
-        self.weight_dir = weights_dir
+        self.weight_path = Path(weights_path)
         self.device = device
 
         self._train_pre_hooks = OrderedDict()
@@ -44,7 +44,7 @@ class AbstractModel(metaclass=ABCMeta):
 
     def _init_multi_gpu(self, n_gpus):
         if n_gpus > 1:
-            self.network_model = nn.DataParallel(self.network_model)
+            self.network_model = nn.DataParallel(self.network_model).to(self.device)
         else:
             self.network_model = self.network_model.to(self.device)
 
@@ -111,22 +111,28 @@ class AbstractModel(metaclass=ABCMeta):
         self.mode = Mode.TEST
         self.network_model.eval()
 
-    def load_weight(self, path):
+    def load_weight(self, path=None):
         """
 
         Args:
             path (Path or str):
 
         """
+        if path is None:
+            path = self.weight_path
+
         self.network_model.load_state_dict(torch.load(path))
 
-    def save_weight(self, path):
+    def save_weight(self, path=None):
         """
 
         Args:
             path (Path or str):
 
         """
+        if path is None:
+            path = self.weight_path
+
         torch.save(self.network_model.state_dict(), path)
 
     # ==============================================================================

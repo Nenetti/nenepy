@@ -1,1 +1,1 @@
-from .standard_vae import VAE
+from .variational_auto_encoder import VariationalAutoEncoder
