@@ -53,6 +53,7 @@ class AbstractModel(metaclass=ABCMeta):
     #   Abstract Method
     #
     # ==============================================================================
+
     @abstractmethod
     def train_step(self, *args, **kwargs):
         raise NotImplementedError()

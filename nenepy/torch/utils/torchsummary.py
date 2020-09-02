@@ -8,6 +8,24 @@ import torch.nn as nn
 
 
 class Block:
+    total_params = 0
+
+    input_max_tensor_dims = 0
+    input_each_max_dims = 0
+    input_coefficient_length = 0
+
+    output_max_tensor_dims = 0
+    output_each_max_dims = 0
+    output_coefficient_length = 0
+
+    directory_length = 0
+    input_shape_length = 0
+    input_arg_length = 0
+    output_shape_length = 0
+    param_n_length = 0
+    param_per_length = 0
+
+    all_blocks = []
 
     def __init__(self):
         self.module = None
@@ -21,58 +39,159 @@ class Block:
         self.bottom = False
         self.n_params = 0
         self.weight_grad = None
+        self.all_blocks.append(self)
+
+    @classmethod
+    def input_length(cls):
+        length = cls.input_arg_length + cls.input_shape_length + cls.input_coefficient_length
+        if cls.input_arg_length > 0:
+            length += len(": ")
+        if cls.input_coefficient_length > 0:
+            length += len(" * ")
+
+        return length
+
+    @classmethod
+    def output_length(cls):
+        length = cls.output_shape_length + cls.output_coefficient_length
+        if cls.output_coefficient_length > 0:
+            length += len(" * ")
+        return length
+
+    @classmethod
+    def param_length(cls):
+        length = cls.param_n_length + cls.param_per_length
+        if cls.param_n_length > 0:
+            length += len(" ")
+        return length
 
     @property
     def name(self):
         return str(self.module.__class__).split(".")[-1].split("'")[0]
 
+    @property
+    def directory(self):
+        return f"{self.name:<{self.directory_length}}"
+
+    @property
+    def param(self):
+        if self.n_params == 0:
+            return ""
+        else:
+            return f"{self.n_params:,}"
+
+    @property
+    def param_per(self):
+        if self.n_params == 0:
+            return ""
+        else:
+            per = (self.n_params / self.total_params) * 100
+            return f"({per:.1f}%)"
+
+    @property
+    def param_text(self):
+        return f"{self.param:>{self.param_n_length}} {self.param_per:>{self.param_per_length}}"
+
+    @property
+    def input_args(self):
+        if len(self.input_kwargs) > 1:
+            return [f"{arg}" for arg in self.input_kwargs.keys()]
+        else:
+            return [""]
+
+    @property
+    def input_shapes(self):
+        return [f"{size_str.tensors_to_str(self.output_each_max_dims)}" for size_str in self.input_kwargs.values()]
+
+    @property
+    def input_coefficients(self):
+        return [f"{size_str.coefficient}" for size_str in self.input_kwargs.values()]
+
+    @property
+    def input_texts(self):
+        args = self.input_args
+        shapes = self.input_shapes
+        coefficient = self.input_coefficients
+        texts = [None] * len(shapes)
+        for i in range(len(shapes)):
+            if args[i] != "":
+                text = f"{args[i]:>{self.input_arg_length}}: {shapes[i]:<{self.input_shape_length}}"
+            else:
+                text = f"{args[i]:>{self.input_arg_length}}  {shapes[i]:<{self.input_shape_length}}"
+
+            if self.input_coefficient_length == 0:
+                texts[i] = f"{text}"
+            elif coefficient[i] != "":
+                texts[i] = f"{text} * {coefficient[i]:<{self.input_coefficient_length}}"
+            else:
+                texts[i] = f"{text}   {coefficient[i]:<{self.input_coefficient_length}}"
+        return texts
+
+    @property
+    def output_shapes(self):
+        return [f"{size_str.tensors_to_str(self.output_each_max_dims)}" for size_str in self.output_kwargs.values()]
+
+    @property
+    def output_coefficients(self):
+        return [f"{size_str.coefficient}" for size_str in self.output_kwargs.values()]
+
+    @property
+    def output_texts(self):
+        shapes = self.output_shapes
+        coefficient = self.output_coefficients
+        texts = [None] * len(shapes)
+        for i in range(len(shapes)):
+            if self.output_coefficient_length == 0:
+                texts[i] = f"{shapes[i]:<{self.output_shape_length}}"
+            elif coefficient[i] != "":
+                texts[i] = f"{shapes[i]:<{self.output_shape_length}} * {coefficient[i]:<{self.output_coefficient_length}}"
+            else:
+                texts[i] = f"{shapes[i]:<{self.output_shape_length}}   {coefficient[i]:<{self.output_coefficient_length}}"
+        return texts
+
     def add(self, module):
         self.blocks.append(module)
 
-    def input_kwargs_str(self):
-        out = OrderedDict()
-        if len(self.input_kwargs) == 1:
-            out[""] = f"{list(self.input_kwargs.values())[0]}"
-        else:
-            for arg, value in self.input_kwargs.items():
-                out[f"{arg}: "] = f"{value}"
+    @classmethod
+    def calc_length(cls):
+        cls.input_max_tensor_dims = cls._get_input_max_tensor_dims()
+        cls.input_each_max_dims = cls._get_input_each_dim_max_size()
+        cls.input_coefficient_length = cls._get_input_max_coefficient()
 
-        return out
+        cls.output_max_tensor_dims = cls._get_output_max_tensor_dims()
+        cls.output_each_max_dims = cls._get_output_each_dim_max_size()
+        cls.output_coefficient_length = cls._get_output_max_coefficient()
 
-    def output_kwargs_str(self):
-        out = OrderedDict()
-        if len(self.input_kwargs) == 1:
-            out[""] = list(self.input_kwargs.values())[0]
-        else:
-            for arg, value in self.input_kwargs.items():
-                out[f"{arg}"] = f"{value}"
+        cls.input_shape_length = cls._get_max_input_shape_length()
+        cls.input_arg_length = cls._get_max_input_args_length()
+        cls.output_shape_length = cls._get_max_output_length()
+        cls.param_n_length = cls._get_max_param_length()
+        cls.param_per_length = cls._get_max_param_per_length()
 
-        return out
-
-    @staticmethod
-    def get_input_max_tensor_dims(blocks):
+    @classmethod
+    def _get_input_max_tensor_dims(cls):
         max_dims = 0
-        for block in blocks:
+        for block in cls.all_blocks:
             for size_str in block.input_kwargs.values():
                 if size_str.is_tensor:
                     max_dims = max(max_dims, size_str.n_dims)
 
         return max_dims
 
-    @staticmethod
-    def get_output_max_tensor_dims(blocks):
+    @classmethod
+    def _get_output_max_tensor_dims(cls):
         max_dims = 0
-        for block in blocks:
+        for block in cls.all_blocks:
             for size_str in block.output_kwargs.values():
                 if size_str.is_tensor:
                     max_dims = max(max_dims, size_str.n_dims)
 
         return max_dims
 
-    @staticmethod
-    def get_input_each_dim_max_size(blocks, n_dims):
-        dims = [0 for _ in range(n_dims)]
-        for block in blocks:
+    @classmethod
+    def _get_input_each_dim_max_size(cls):
+        dims = [0 for _ in range(cls.input_max_tensor_dims)]
+        for block in cls.all_blocks:
             for size_str in block.input_kwargs.values():
                 if size_str.is_tensor:
                     tensors = size_str.tensors
@@ -81,20 +200,20 @@ class Block:
 
         return dims
 
-    @staticmethod
-    def get_input_max_coefficient(blocks):
+    @classmethod
+    def _get_input_max_coefficient(cls):
         max_dims = 0
-        for block in blocks:
+        for block in cls.all_blocks:
             for size_str in block.input_kwargs.values():
                 length = len(size_str.coefficient)
                 max_dims = max(max_dims, length)
 
         return max_dims
 
-    @staticmethod
-    def get_output_each_dim_max_size(blocks, n_dims):
-        dims = [0 for _ in range(n_dims)]
-        for block in blocks:
+    @classmethod
+    def _get_output_each_dim_max_size(cls):
+        dims = [0 for _ in range(cls.output_max_tensor_dims)]
+        for block in cls.all_blocks:
             for size_str in block.output_kwargs.values():
                 if size_str.is_tensor:
                     tensors = size_str.tensors
@@ -103,57 +222,57 @@ class Block:
 
         return dims
 
-    @staticmethod
-    def get_max_input_length(blocks, each_max_dims):
+    @classmethod
+    def _get_max_input_shape_length(cls):
         max_length = 0
-        for block in blocks:
-            length = max([len(size_str.tensors_to_str(each_max_dims)) for size_str in block.input_kwargs.values()])
+        for block in cls.all_blocks:
+            length = max([len(size_str.tensors_to_str(cls.input_each_max_dims)) for size_str in block.input_kwargs.values()])
             max_length = max(max_length, length)
 
         return max_length
 
-    @staticmethod
-    def get_output_max_coefficient(blocks):
+    @classmethod
+    def _get_output_max_coefficient(cls):
         max_dims = 0
-        for block in blocks:
+        for block in cls.all_blocks:
             for size_str in block.output_kwargs.values():
                 length = len(size_str.coefficient)
                 max_dims = max(max_dims, length)
 
         return max_dims
 
-    @staticmethod
-    def get_max_input_args_length(blocks):
+    @classmethod
+    def _get_max_input_args_length(cls):
         max_length = 0
-        for block in blocks:
+        for block in cls.all_blocks:
             length = max([len(f"{arg}: ") for arg in block.input_kwargs.keys()])
             max_length = max(max_length, length)
 
         return max_length
 
-    @staticmethod
-    def get_max_output_length(blocks, each_max_dims):
+    @classmethod
+    def _get_max_output_length(cls):
         max_length = 0
-        for block in blocks:
-            length = max([len(size_str.tensors_to_str(each_max_dims)) for size_str in block.output_kwargs.values()])
+        for block in cls.all_blocks:
+            length = max([len(size_str.tensors_to_str(cls.output_each_max_dims)) for size_str in block.output_kwargs.values()])
             max_length = max(max_length, length)
 
         return max_length
 
-    @staticmethod
-    def get_max_param_length(blocks):
+    @classmethod
+    def _get_max_param_length(cls):
         max_length = 0
-        for block in blocks:
+        for block in cls.all_blocks:
             length = len(f"{block.n_params:,}")
             max_length = max(max_length, length)
 
         return max_length
 
-    @staticmethod
-    def get_max_param_per_length(blocks, total_params):
+    @classmethod
+    def _get_max_param_per_length(cls):
         max_length = 0
-        for block in blocks:
-            per = (block.n_params / total_params) * 100
+        for block in cls.all_blocks:
+            per = (block.n_params / cls.total_params) * 100
             length = len(f"({per:.1f}%)")
             max_length = max(max_length, length)
 
@@ -283,6 +402,8 @@ class Summary:
         self.total_params = 0
         for block in self.ordered_blocks:
             self.total_params += block.n_params
+        Block.total_params = self.total_params
+        Block.calc_length()
 
         self.calc_depth()
         self.name_texts()
@@ -292,39 +413,39 @@ class Summary:
         for h in self.hooks:
             h.remove()
 
-        # sys.exit()
-
-        print("----------------------------------------------------------------")
-        line_new = "{:>20}  {:>25} {:>15}".format("Layer (type)", "Output Shape", "Param #")
-        print(line_new)
-        print("================================================================")
-        total_params = self.total_params
-        total_input = sum([self.get_memory_size(block.module_in) for block in self.ordered_blocks])
-        total_output = sum([self.get_memory_size(block.module_out) for block in self.ordered_blocks])
-        trainable_params = 0
-        input_param_size = total_input
-
-        total_input_size = abs(input_param_size * self.batch_size * 4. / (1024 ** 2.))
-        total_output_size = abs(2 * self.batch_size * total_output * 4. / (1024 ** 2.))  # x2 for gradients
-        total_params_size = abs(total_params * 4. / (1024 ** 2.))
-        total_size = total_params_size + total_output_size + total_input_size
-
-        print("================================================================")
-        print(f"Total params:           {total_params:,}")
-        print(f"Trainable params:       {trainable_params:,}")
-        print(f"Non-trainable params:   {total_params - trainable_params:,}")
-        print("----------------------------------------------------------------")
-        print(f"Input size (MB):                    {total_input_size / self.batch_size:.2f}")
-        print(f"Forward/backward pass size (MB):    {total_output_size / self.batch_size:.2f}")
-        print(f"Params size (MB):                   {total_params_size / self.batch_size:.2f}")
-        print(f"Estimated Total Size (MB):          {total_size / self.batch_size:.2f}")
-        print("----------------------------------------------------------------")
-        print(f"Total Input size (MB):                  {total_input_size:.2f}")
-        print(f"Total Input size (MB):                  {total_input_size:.2f}")
-        print(f"Total Forward/backward pass size (MB):  {total_output_size:.2f}")
-        print(f"Total Params size (MB):                 {total_params_size:.2f}")
-        print(f"Total Estimated Total Size (MB):        {total_size:.2f}")
-        print("----------------------------------------------------------------")
+        sys.exit()
+        #
+        # print("----------------------------------------------------------------")
+        # line_new = "{:>20}  {:>25} {:>15}".format("Layer (type)", "Output Shape", "Param #")
+        # print(line_new)
+        # print("================================================================")
+        # total_params = self.total_params
+        # total_input = sum([self.get_memory_size(block.module_in) for block in self.ordered_blocks])
+        # total_output = sum([self.get_memory_size(block.module_out) for block in self.ordered_blocks])
+        # trainable_params = 0
+        # input_param_size = total_input
+        #
+        # total_input_size = abs(input_param_size * self.batch_size * 4. / (1024 ** 2.))
+        # total_output_size = abs(2 * self.batch_size * total_output * 4. / (1024 ** 2.))  # x2 for gradients
+        # total_params_size = abs(total_params * 4. / (1024 ** 2.))
+        # total_size = total_params_size + total_output_size + total_input_size
+        #
+        # print("================================================================")
+        # print(f"Total params:           {total_params:,}")
+        # print(f"Trainable params:       {trainable_params:,}")
+        # print(f"Non-trainable params:   {total_params - trainable_params:,}")
+        # print("----------------------------------------------------------------")
+        # print(f"Input size (MB):                    {total_input_size / self.batch_size:.2f}")
+        # print(f"Forward/backward pass size (MB):    {total_output_size / self.batch_size:.2f}")
+        # print(f"Params size (MB):                   {total_params_size / self.batch_size:.2f}")
+        # print(f"Estimated Total Size (MB):          {total_size / self.batch_size:.2f}")
+        # print("----------------------------------------------------------------")
+        # print(f"Total Input size (MB):                  {total_input_size:.2f}")
+        # print(f"Total Input size (MB):                  {total_input_size:.2f}")
+        # print(f"Total Forward/backward pass size (MB):  {total_output_size:.2f}")
+        # print(f"Total Params size (MB):                 {total_params_size:.2f}")
+        # print(f"Total Estimated Total Size (MB):        {total_size:.2f}")
+        # print("----------------------------------------------------------------")
         # return summary
 
     def calc_depth(self):
@@ -341,7 +462,7 @@ class Summary:
         for root in self.roots:
             recursive(root, 0)
 
-    def get_max_directory_structure_length(self):
+    def _get_max_directory_structure_length(self):
         max_length = 0
         for block in self.ordered_blocks:
             index_space = " " * 4 * block.depth
@@ -350,111 +471,50 @@ class Summary:
 
         return max_length
 
-    def to_string(self, block, input_each_max_dims, output_each_max_dims):
-        """
-
-        Args:
-            block (Block):
-
-        """
-        name = f"{block.name}"
-
-        input_args = []
-        inputs = []
-        input_coefficients = []
-        outputs = []
-        output_coefficients = []
-
-        for arg, size_str in block.input_kwargs.items():
-            input_args_text = arg if len(block.input_kwargs) > 1 else ""
-            input_shape = f"{size_str.tensors_to_str(input_each_max_dims)}"
-            input_coefficient = size_str.coefficient
-            inputs.append(input_shape)
-            input_coefficients.append(input_coefficient)
-            input_args.append(input_args_text)
-
-        for size_str in block.output_kwargs.values():
-            text = f"{size_str.tensors_to_str(output_each_max_dims)}"
-            outputs_coefficient = size_str.coefficient
-            output_coefficients.append(outputs_coefficient)
-            outputs.append(text)
-
-        if block.n_params != 0:
-            param_text = f"{block.n_params:,}"
+    @staticmethod
+    def to_directories(root, directory, directory_length, max_length, append, is_last):
+        if root.depth == 0:
+            directories = [f"  {directory}"]
         else:
-            param_text = ""
-        return name, inputs, input_args, input_coefficients, outputs, output_coefficients, [param_text]
-
-    def print_string(self, directory, input_arg, input_shape, input_coefficient, output_shape, output_coefficient, param,
-                     directory_length, input_arg_length, input_shape_length, input_coefficient_length, output_shape_length, output_coefficient_length,
-                     param_length, param_per_length, is_boundary=False):
-
-        directory_text = f"{directory:<{directory_length}}"
-        input_arg_text = f"{input_arg:>{input_arg_length}}"
-        input_shape_text = f"{input_shape:<{input_shape_length}}"
-        input_coefficient_text = f"{input_coefficient:>{input_coefficient_length}}"
-        output_shape_text = f"{output_shape:<{output_shape_length}}"
-        output_coefficient_text = f"{output_coefficient:>{output_coefficient_length}}"
-        param_text = f"{param:>{param_length}}"
-        if param != "":
-            per = (int(param.replace(",", "")) / self.total_params) * 100
-            per = f"({per:.1f}%)"
-            param_text = f"{param_text} {per:>{param_per_length}}"
-        else:
-            param_text = f"{param_text} {' ':>{param_per_length}}"
-
-        input_text = f"{input_arg_text}"
-        if input_arg != "":
-            input_text = f"{input_text}: {input_shape_text}"
-        else:
-            input_text = f"{input_text}  {input_shape_text}"
-
-        if input_coefficient_length > 0:
-            if input_coefficient != "":
-                input_text = f"{input_text} * {input_coefficient_text}"
+            if is_last:
+                directories = [f"{append}└ {directory}"]
             else:
-                input_text = f"{input_text}   {input_coefficient_text}"
+                directories = [f"{append}├ {directory}"]
 
-        output_text = f"{output_shape_text}"
-        if output_coefficient_length > 0:
-            if output_coefficient != "":
-                output_text = f"{output_text} * {output_coefficient_text}"
-            else:
-                output_text = f"{output_text}   {output_coefficient_text}"
+        if is_last:
+            append = f"{append}     "
+        else:
+            append = f"{append}│    "
+
+        if len(root.blocks) > 0:
+            directories += [f"{append}│    "] * (max_length - len(directories))
+        else:
+            directories += [f"{append}    "] * (max_length - len(directories))
+
+        for i in range(len(directories)):
+            directories[i] = f"{directories[i]:<{directory_length}}"
+
+        return directories, append
+
+    def print_string(self, directory, input_text, output_text, param_text, is_boundary):
 
         partition = "  │  "
         if is_boundary:
             partition = " -│- "
 
-        print(f"{directory_text}{partition}{input_text}{partition}{output_text}{partition}{param_text}  │")
+        print(f"{directory}{partition}{input_text}{partition}{output_text}{partition}{param_text}  │")
 
     def name_texts(self):
-        input_max_tensor_dims = Block.get_input_max_tensor_dims(self.ordered_blocks)
-        input_each_max_dims = Block.get_input_each_dim_max_size(self.ordered_blocks, input_max_tensor_dims)
-        input_coefficient_length = Block.get_input_max_coefficient(self.ordered_blocks)
 
-        output_max_tensor_dims = Block.get_output_max_tensor_dims(self.ordered_blocks)
-        output_each_max_dims = Block.get_output_each_dim_max_size(self.ordered_blocks, output_max_tensor_dims)
-        output_coefficient_length = Block.get_output_max_coefficient(self.ordered_blocks)
+        directory_length = self._get_max_directory_structure_length()
 
-        directory_length = self.get_max_directory_structure_length()
-        input_shape_length = Block.get_max_input_length(self.ordered_blocks, input_each_max_dims)
-        input_arg_length = Block.get_max_input_args_length(self.ordered_blocks)
-        output_shape_length = Block.get_max_output_length(self.ordered_blocks, output_each_max_dims)
-        param_n_length = Block.get_max_param_length(self.ordered_blocks)
-        param_per_length = Block.get_max_param_per_length(self.ordered_blocks, self.total_params)
+        input_length = Block.input_length()
+        output_length = Block.output_length()
+        param_length = Block.param_length()
 
-        input_length = input_arg_length + input_shape_length + input_coefficient_length
-        if input_arg_length > 0:
-            input_length += len(": ")
-        if input_coefficient_length > 0:
-            input_length += len(" * ")
-
-        output_length = output_shape_length + output_coefficient_length
-        if output_coefficient_length > 0:
-            output_length += len(" * ")
-
-        param_length = param_n_length + param_per_length + 1
+        input_empty = f"{' ' * input_length}"
+        output_empty = f"{' ' * output_length}"
+        param_empty = f"{' ' * param_length}"
 
         line = "--│--".join([
             f"{'-' * directory_length}",
@@ -483,94 +543,68 @@ class Summary:
         print(line)
         print(line2)
 
-        def recursive(root, append="", is_last=False, before_is_boundary=True, before_is_space=True):
-            length = len(root.blocks)
-            empty = ""
-            directories, inputs, input_args, input_coefficients, outputs, output_coefficients, params = self.to_string(root, input_each_max_dims,
-                                                                                                                       output_each_max_dims)
-            if root.depth == 0:
-                directories = [f"  {directories}"]
-            else:
-                if is_last:
-                    directories = [f"{append}└ {directories}"]
-                else:
-                    directories = [f"{append}├ {directories}"]
+        def recursive(root, append="", is_last=False, before_is_boundary=False, before_is_space=True):
 
-            if (not before_is_space and not before_is_boundary) and len(root.blocks) > 0:
-                directory = f"{append}│ "
-                self.print_string(directory, empty, empty, empty, empty, empty, empty,
-                                  directory_length, input_arg_length, input_shape_length, input_coefficient_length, output_shape_length,
-                                  output_coefficient_length, param_n_length, param_per_length, is_boundary=False)
-
-            if (len(inputs) > 1 or len(outputs) > 1) and not (before_is_boundary):
-                directory = f"{append}│    "
-                self.print_string(directory, empty, empty, empty, empty, empty, empty,
-                                  directory_length, input_arg_length, input_shape_length, input_coefficient_length, output_shape_length,
-                                  output_coefficient_length, param_n_length, param_per_length, is_boundary=True)
-
-            if is_last:
-                append = f"{append}     "
-            else:
-                append = f"{append}│    "
-
+            n_child_blocks = len(root.blocks)
+            directory, inputs, outputs, params, boundaries = root.name, root.input_texts, root.output_texts, [root.param_text], [False]
             max_length = max(len(inputs), len(outputs))
-            if len(root.blocks) > 0:
-                directories += [f"{append}│    "] * (max_length - len(directories))
-            else:
-                directories += [f"{append}    "] * (max_length - len(directories))
-            input_args += [""] * (max_length - len(input_args))
-            inputs += [""] * (max_length - len(inputs))
-            input_coefficients += [""] * (max_length - len(input_coefficients))
-            outputs += [""] * (max_length - len(outputs))
-            output_coefficients += [""] * (max_length - len(output_coefficients))
-            params += [""] * (max_length - len(params))
+            directories, new_append = self.to_directories(root, directory, directory_length, max_length, append, is_last)
+            inputs += [" " * len(inputs[0])] * (max_length - len(inputs))
+            outputs += [" " * len(outputs[0])] * (max_length - len(outputs))
+            params += [" " * len(params[0])] * (max_length - len(params))
+            boundaries += [False] * (max_length - len(boundaries))
 
-            for i in range(max(len(directories), len(inputs), len(outputs))):
-                self.print_string(directories[i], input_args[i], inputs[i], input_coefficients[i], outputs[i], output_coefficients[i],
-                                  params[i],
-                                  directory_length, input_arg_length, input_shape_length, input_coefficient_length, output_shape_length,
-                                  output_coefficient_length, param_n_length, param_per_length, is_boundary=False)
+            need_before_boundary = (max_length > 1) and (not before_is_boundary)
+            need_before_space = (n_child_blocks > 0) and (not before_is_space and not before_is_boundary)
+            need_boundary = max_length > 1
+            need_space = is_last and len(root.blocks) == 0
 
-            if len(inputs) > 1 or len(outputs) > 1:
-                if len(root.blocks) > 0:
-                    directory = f"{append + '│    ':<{directory_length}}"
-                else:
-                    directory = f"{append + '     ':<{directory_length}}"
+            if need_before_space:
+                d = f"{f'{append}│ ':<{directory_length}}"
+                self.print_string(d, input_empty, output_empty, param_empty, False)
 
-                self.print_string(directory, empty, empty, empty, empty, empty, empty,
-                                  directory_length, input_arg_length, input_shape_length, input_coefficient_length, output_shape_length,
-                                  output_coefficient_length, param_n_length, param_per_length, is_boundary=True)
+            if need_before_boundary:
+                d = f"{f'{append}│    ':<{directory_length}}"
+                self.print_string(d, input_empty, output_empty, param_empty, True)
+
+            for i in range(len(directories)):
+                self.print_string(directories[i], inputs[i], outputs[i], params[i], boundaries[i])
+
+            before_is_space = False
+            before_is_boundary = False
+            if need_boundary:
+                d = f"{new_append + '│    '}" if len(root.blocks) > 0 else f"{new_append + '     '}"
+                d = f"{d:<{directory_length}}"
+                self.print_string(d, input_empty, output_empty, param_empty, True)
                 before_is_boundary = True
-            else:
-                before_is_boundary = False
 
-            if is_last and len(root.blocks) == 0:
-                self.print_string(append, empty, empty, empty, empty, empty, empty,
-                                  directory_length, input_arg_length, input_shape_length, input_coefficient_length, output_shape_length,
-                                  output_coefficient_length, param_n_length, param_per_length, is_boundary=False)
+            if need_space:
+                d = f"{new_append:<{directory_length}}"
+                self.print_string(d, input_empty, output_empty, param_empty, False)
                 before_is_space = True
-            else:
-                before_is_space = False
 
             for i, block in enumerate(root.blocks):
-                if i == length - 1:
+                if i + 1 == len(root.blocks):
                     if is_last:
-                        before_is_boundary, before_is_space = recursive(block, append, is_last=True, before_is_boundary=before_is_boundary,
+                        before_is_boundary, before_is_space = recursive(block, new_append, is_last=True, before_is_boundary=before_is_boundary,
                                                                         before_is_space=before_is_space)
                     else:
-                        before_is_boundary, before_is_space = recursive(block, append, is_last=True, before_is_boundary=before_is_boundary,
+                        before_is_boundary, before_is_space = recursive(block, new_append, is_last=True, before_is_boundary=before_is_boundary,
                                                                         before_is_space=before_is_space)
                 else:
                     if is_last:
-                        before_is_boundary, before_is_space = recursive(block, append, before_is_boundary=before_is_boundary, before_is_space=before_is_space)
+                        before_is_boundary, before_is_space = recursive(block, new_append, before_is_boundary=before_is_boundary,
+                                                                        before_is_space=before_is_space)
                     else:
-                        before_is_boundary, before_is_space = recursive(block, append, before_is_boundary=before_is_boundary, before_is_space=before_is_space)
+                        before_is_boundary, before_is_space = recursive(block, new_append, before_is_boundary=before_is_boundary,
+                                                                        before_is_space=before_is_space)
 
             return before_is_boundary, before_is_space
 
         for root in self.roots:
             recursive(root, is_last=True)
 
+        print(line2)
         print(line)
         print(indexes_str)
         print(line)
