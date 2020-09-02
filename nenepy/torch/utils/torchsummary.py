@@ -1,6 +1,6 @@
 import inspect
 import sys
-from collections import OrderedDict
+from collections import OrderedDict, Counter
 
 import numpy as np
 import torch
@@ -49,25 +49,172 @@ class Block:
 
         return out
 
+    @staticmethod
+    def get_input_max_tensor_dims(blocks):
+        max_dims = 0
+        for block in blocks:
+            for size_str in block.input_kwargs.values():
+                if size_str.is_tensor:
+                    max_dims = max(max_dims, size_str.n_dims)
+
+        return max_dims
+
+    @staticmethod
+    def get_output_max_tensor_dims(blocks):
+        max_dims = 0
+        for block in blocks:
+            for size_str in block.output_kwargs.values():
+                if size_str.is_tensor:
+                    max_dims = max(max_dims, size_str.n_dims)
+
+        return max_dims
+
+    @staticmethod
+    def get_input_each_dim_max_size(blocks, n_dims):
+        dims = [0 for _ in range(n_dims)]
+        for block in blocks:
+            for size_str in block.input_kwargs.values():
+                if size_str.is_tensor:
+                    tensors = size_str.tensors
+                    for i in range(len(tensors)):
+                        dims[i] = max(dims[i], len(tensors[i]))
+
+        return dims
+
+    @staticmethod
+    def get_input_max_coefficient(blocks):
+        max_dims = 0
+        for block in blocks:
+            for size_str in block.input_kwargs.values():
+                length = len(size_str.coefficient)
+                max_dims = max(max_dims, length)
+
+        return max_dims
+
+    @staticmethod
+    def get_output_each_dim_max_size(blocks, n_dims):
+        dims = [0 for _ in range(n_dims)]
+        for block in blocks:
+            for size_str in block.output_kwargs.values():
+                if size_str.is_tensor:
+                    tensors = size_str.tensors
+                    for i in range(len(tensors)):
+                        dims[i] = max(dims[i], len(tensors[i]))
+
+        return dims
+
+    @staticmethod
+    def get_max_input_length(blocks, each_max_dims):
+        max_length = 0
+        for block in blocks:
+            length = max([len(size_str.tensors_to_str(each_max_dims)) for size_str in block.input_kwargs.values()])
+            max_length = max(max_length, length)
+
+        return max_length
+
+    @staticmethod
+    def get_output_max_coefficient(blocks):
+        max_dims = 0
+        for block in blocks:
+            for size_str in block.output_kwargs.values():
+                length = len(size_str.coefficient)
+                max_dims = max(max_dims, length)
+
+        return max_dims
+
+    @staticmethod
+    def get_max_input_args_length(blocks):
+        max_length = 0
+        for block in blocks:
+            length = max([len(f"{arg}: ") for arg in block.input_kwargs.keys()])
+            max_length = max(max_length, length)
+
+        return max_length
+
+    @staticmethod
+    def get_max_output_length(blocks, each_max_dims):
+        max_length = 0
+        for block in blocks:
+            length = max([len(size_str.tensors_to_str(each_max_dims)) for size_str in block.output_kwargs.values()])
+            max_length = max(max_length, length)
+
+        return max_length
+
+    @staticmethod
+    def get_max_param_length(blocks):
+        max_length = 0
+        for block in blocks:
+            length = len(f"{block.n_params:,}")
+            max_length = max(max_length, length)
+
+        return max_length
+
+    @staticmethod
+    def get_max_param_per_length(blocks, total_params):
+        max_length = 0
+        for block in blocks:
+            per = (block.n_params / total_params) * 100
+            length = len(f"({per:.1f}%)")
+            max_length = max(max_length, length)
+
+        return max_length
+
 
 class InputSizeStr:
 
-    def __init__(self, tensor):
+    def __init__(self, string, is_tensor, coefficient):
 
-        self.string = ""
-        self.is_tensor = False
+        self.string = string
+        self.is_tensor = is_tensor
+        self.coefficient = coefficient
+
+    @staticmethod
+    def init(tensor):
+        string = ""
+        is_tensor = False
+        coefficient = ""
 
         if isinstance(tensor, torch.Tensor):
-            self.is_tensor = True
-            self.string = list(map(str, list(tensor.size())))
+            is_tensor = True
+            string = list(map(str, list(tensor.size())))
 
         elif isinstance(tensor, (list, tuple)):
-            self.is_tensor = False
             v = tensor[0]
             if isinstance(v, torch.Tensor):
-                self.string = f"{str(list(v.size()))} * {len(tensor)}"
+                shapes = []
+                shapes_dict = dict()
+                for t in tensor:
+                    s = str(t.shape)
+                    shapes.append(s)
+                    shapes_dict[s] = t
+                counter = Counter(shapes)
+                sort = counter.most_common()
+                if len(sort) == 1:
+                    is_tensor = True
+                    string = list(map(str, list(v.size())))
+                    coefficient = f"{len(tensor)}"
+
+                else:
+                    out = []
+                    for i, (value, n) in enumerate(sort):
+                        is_tensor = True
+                        string = list(map(str, list(shapes_dict[value].size())))
+                        coefficient = f"{n}"
+                        size_str = InputSizeStr(string, is_tensor, coefficient)
+                        out.append(size_str)
+                    return out
+
             else:
-                self.string = f"{v}".replace("torch.Size", "")
+                is_tensor = False
+                string = str(v.__class__).split(".")[-1].split("'")[0]
+                string = f"<class: {string}>"
+                coefficient = f"{len(tensor)}"
+
+        else:
+            is_tensor = False
+            string = "Unknown"
+
+        return InputSizeStr(string, is_tensor, coefficient)
 
     def tensors_to_str(self, each_max_dims):
         if self.is_tensor:
@@ -197,91 +344,11 @@ class Summary:
     def get_max_directory_structure_length(self):
         max_length = 0
         for block in self.ordered_blocks:
-            index_space = self.space(block.depth)
+            index_space = " " * 4 * block.depth
             text = f"{index_space}    {block.name}    "
             max_length = max(max_length, len(text))
 
         return max_length
-
-    def get_input_max_tensor_dims(self):
-        max_dims = 0
-        for block in self.ordered_blocks:
-            for size_str in block.input_kwargs.values():
-                if size_str.is_tensor:
-                    max_dims = max(max_dims, size_str.n_dims)
-
-        return max_dims
-
-    def get_output_max_tensor_dims(self):
-        max_dims = 0
-        for block in self.ordered_blocks:
-            for size_str in block.output_kwargs.values():
-                if size_str.is_tensor:
-                    max_dims = max(max_dims, size_str.n_dims)
-
-        return max_dims
-
-    def get_input_each_dim_max_size(self, max_dims):
-        dims = [0 for _ in range(max_dims)]
-        for block in self.ordered_blocks:
-            for size_str in block.input_kwargs.values():
-                if size_str.is_tensor:
-                    tensors = size_str.tensors
-                    for i in range(len(tensors)):
-                        dims[i] = max(dims[i], len(tensors[i]))
-
-        return dims
-
-    def get_output_each_dim_max_size(self, max_dims):
-        dims = [0 for _ in range(max_dims)]
-        for block in self.ordered_blocks:
-            for size_str in block.output_kwargs.values():
-                if size_str.is_tensor:
-                    tensors = size_str.tensors
-                    for i in range(len(tensors)):
-                        dims[i] = max(dims[i], len(tensors[i]))
-
-        return dims
-
-    def get_max_input_length(self, each_max_dims):
-        max_length = 0
-        for block in self.ordered_blocks:
-            length = max([len(size_str.tensors_to_str(each_max_dims)) for size_str in block.input_kwargs.values()])
-            max_length = max(max_length, length)
-
-        return max_length
-
-    def get_max_input_args_length(self):
-
-        max_length = 0
-        for block in self.ordered_blocks:
-            length = max([len(f"{arg}: ") for arg in block.input_kwargs.keys()])
-            max_length = max(max_length, length)
-
-        return max_length
-
-    def get_max_output_length(self, each_max_dims):
-        max_length = 0
-        for block in self.ordered_blocks:
-            length = max([len(size_str.tensors_to_str(each_max_dims)) for size_str in block.output_kwargs.values()])
-            max_length = max(max_length, length)
-
-        return max_length
-
-    def get_max_param_length(self):
-        def recursive(block):
-            a = [len(str(b.n_params)) for b in block.blocks]
-            if len(a) > 0:
-                length = max(a)
-            else:
-                length = 0
-
-            for b in block.blocks:
-                length = max(length, recursive(b))
-
-            return length
-
-        return max([recursive(b) for b in self.roots])
 
     def to_string(self, block, input_each_max_dims, output_each_max_dims):
         """
@@ -292,162 +359,228 @@ class Summary:
         """
         name = f"{block.name}"
 
-        input_texts = []
-        input_args_texts = []
+        input_args = []
+        inputs = []
+        input_coefficients = []
+        outputs = []
+        output_coefficients = []
 
         for arg, size_str in block.input_kwargs.items():
-            input_texts.append(f"{size_str.tensors_to_str(input_each_max_dims)}")
-            if len(block.input_kwargs) > 1:
-                input_args_text = f"{arg}: "
+            input_args_text = arg if len(block.input_kwargs) > 1 else ""
+            input_shape = f"{size_str.tensors_to_str(input_each_max_dims)}"
+            input_coefficient = size_str.coefficient
+            inputs.append(input_shape)
+            input_coefficients.append(input_coefficient)
+            input_args.append(input_args_text)
+
+        for size_str in block.output_kwargs.values():
+            text = f"{size_str.tensors_to_str(output_each_max_dims)}"
+            outputs_coefficient = size_str.coefficient
+            output_coefficients.append(outputs_coefficient)
+            outputs.append(text)
+
+        if block.n_params != 0:
+            param_text = f"{block.n_params:,}"
+        else:
+            param_text = ""
+        return name, inputs, input_args, input_coefficients, outputs, output_coefficients, [param_text]
+
+    def print_string(self, directory, input_arg, input_shape, input_coefficient, output_shape, output_coefficient, param,
+                     directory_length, input_arg_length, input_shape_length, input_coefficient_length, output_shape_length, output_coefficient_length,
+                     param_length, param_per_length, is_boundary=False):
+
+        directory_text = f"{directory:<{directory_length}}"
+        input_arg_text = f"{input_arg:>{input_arg_length}}"
+        input_shape_text = f"{input_shape:<{input_shape_length}}"
+        input_coefficient_text = f"{input_coefficient:>{input_coefficient_length}}"
+        output_shape_text = f"{output_shape:<{output_shape_length}}"
+        output_coefficient_text = f"{output_coefficient:>{output_coefficient_length}}"
+        param_text = f"{param:>{param_length}}"
+        if param != "":
+            per = (int(param.replace(",", "")) / self.total_params) * 100
+            per = f"({per:.1f}%)"
+            param_text = f"{param_text} {per:>{param_per_length}}"
+        else:
+            param_text = f"{param_text} {' ':>{param_per_length}}"
+
+        input_text = f"{input_arg_text}"
+        if input_arg != "":
+            input_text = f"{input_text}: {input_shape_text}"
+        else:
+            input_text = f"{input_text}  {input_shape_text}"
+
+        if input_coefficient_length > 0:
+            if input_coefficient != "":
+                input_text = f"{input_text} * {input_coefficient_text}"
             else:
-                input_args_text = ""
+                input_text = f"{input_text}   {input_coefficient_text}"
 
-            input_args_texts.append(input_args_text)
+        output_text = f"{output_shape_text}"
+        if output_coefficient_length > 0:
+            if output_coefficient != "":
+                output_text = f"{output_text} * {output_coefficient_text}"
+            else:
+                output_text = f"{output_text}   {output_coefficient_text}"
 
-        outputs = [f"{size_str.tensors_to_str(output_each_max_dims)}" for size_str in block.output_kwargs.values()]
-        param_text = str(block.n_params)
-        return (name, (input_texts, input_args_texts), outputs, [param_text])
+        partition = "  │  "
+        if is_boundary:
+            partition = " -│- "
 
-    def name_texts(self, space_size=4):
-        input_max_tensor_dims = self.get_input_max_tensor_dims()
-        input_each_max_dims = self.get_input_each_dim_max_size(input_max_tensor_dims)
+        print(f"{directory_text}{partition}{input_text}{partition}{output_text}{partition}{param_text}  │")
 
-        output_max_tensor_dims = self.get_output_max_tensor_dims()
-        output_each_max_dims = self.get_output_each_dim_max_size(output_max_tensor_dims)
+    def name_texts(self):
+        input_max_tensor_dims = Block.get_input_max_tensor_dims(self.ordered_blocks)
+        input_each_max_dims = Block.get_input_each_dim_max_size(self.ordered_blocks, input_max_tensor_dims)
+        input_coefficient_length = Block.get_input_max_coefficient(self.ordered_blocks)
 
-        name_max_length = self.get_max_directory_structure_length()
-        input_max_length = self.get_max_input_length(input_each_max_dims)
-        input_max_args_length = self.get_max_input_args_length()
-        output_max_length = self.get_max_output_length(output_each_max_dims)
-        param_max_length = self.get_max_param_length()
+        output_max_tensor_dims = Block.get_output_max_tensor_dims(self.ordered_blocks)
+        output_each_max_dims = Block.get_output_each_dim_max_size(self.ordered_blocks, output_max_tensor_dims)
+        output_coefficient_length = Block.get_output_max_coefficient(self.ordered_blocks)
 
-        total_length = name_max_length + input_max_length + input_max_args_length + output_max_length + param_max_length + 3 * 6
-        line = "-│-".join([f"{'-' * name_max_length}", f"{'-' * (input_max_length + input_max_args_length)}", f"{'-' * (output_max_length)}"]) + "-│ "
+        directory_length = self.get_max_directory_structure_length()
+        input_shape_length = Block.get_max_input_length(self.ordered_blocks, input_each_max_dims)
+        input_arg_length = Block.get_max_input_args_length(self.ordered_blocks)
+        output_shape_length = Block.get_max_output_length(self.ordered_blocks, output_each_max_dims)
+        param_n_length = Block.get_max_param_length(self.ordered_blocks)
+        param_per_length = Block.get_max_param_per_length(self.ordered_blocks, self.total_params)
 
-        indexes_str = " │ ".join([f"{'Network Architecture':^{name_max_length}}", f"{'Input':^{input_max_length + input_max_args_length}}",
-                                  f"{'Output':^{output_max_length}}"]) + " │ "
+        input_length = input_arg_length + input_shape_length + input_coefficient_length
+        if input_arg_length > 0:
+            input_length += len(": ")
+        if input_coefficient_length > 0:
+            input_length += len(" * ")
+
+        output_length = output_shape_length + output_coefficient_length
+        if output_coefficient_length > 0:
+            output_length += len(" * ")
+
+        param_length = param_n_length + param_per_length + 1
+
+        line = "--│--".join([
+            f"{'-' * directory_length}",
+            f"{'-' * input_length}",
+            f"{'-' * output_length}",
+            f"{'-' * param_length}",
+        ]) + "--│ "
+
+        line2 = "  │  ".join([
+            f"{' ' * directory_length}",
+            f"{' ' * input_length}",
+            f"{' ' * output_length}",
+            f"{' ' * param_length}",
+        ]) + "  │ "
+
+        indexes_str = "  │  ".join([
+            f"{'Network Architecture':^{directory_length}}",
+            f"{'Input':^{input_length}}",
+            f"{'Output':^{output_length}}",
+            f"{'Parameters':^{param_length}}",
+        ]) + "  │  "
+
+        print()
         print(line)
         print(indexes_str)
         print(line)
+        print(line2)
 
-        def recursive(root, append="", is_last=False):
+        def recursive(root, append="", is_last=False, before_is_boundary=True, before_is_space=True):
             length = len(root.blocks)
-
-            lines, inputs, outputs, params = self.to_string(root, input_each_max_dims, output_each_max_dims)
-
-            if is_last:
-                if root.depth == 0:
-                    lines = [f"  {lines}"]
+            empty = ""
+            directories, inputs, input_args, input_coefficients, outputs, output_coefficients, params = self.to_string(root, input_each_max_dims,
+                                                                                                                       output_each_max_dims)
+            if root.depth == 0:
+                directories = [f"  {directories}"]
+            else:
+                if is_last:
+                    directories = [f"{append}└ {directories}"]
                 else:
-                    lines = [f"{append}└ {lines}"]
-            else:
-                lines = [f"{append}├ {lines}"]
+                    directories = [f"{append}├ {directories}"]
 
-            input_texts, input_args_texts = inputs
-            output_texts = outputs
+            if (not before_is_space and not before_is_boundary) and len(root.blocks) > 0:
+                directory = f"{append}│ "
+                self.print_string(directory, empty, empty, empty, empty, empty, empty,
+                                  directory_length, input_arg_length, input_shape_length, input_coefficient_length, output_shape_length,
+                                  output_coefficient_length, param_n_length, param_per_length, is_boundary=False)
+
+            if (len(inputs) > 1 or len(outputs) > 1) and not (before_is_boundary):
+                directory = f"{append}│    "
+                self.print_string(directory, empty, empty, empty, empty, empty, empty,
+                                  directory_length, input_arg_length, input_shape_length, input_coefficient_length, output_shape_length,
+                                  output_coefficient_length, param_n_length, param_per_length, is_boundary=True)
 
             if is_last:
-                append = append + "     "
+                append = f"{append}     "
             else:
-                append = append + "│    "
+                append = f"{append}│    "
 
-            max_length = max(len(input_texts), len(output_texts))
-            lines += [append + "│    "] * (max_length - len(lines))
-            input_texts += [""] * (max_length - len(input_texts))
-            input_args_texts += [""] * (max_length - len(input_args_texts))
-            output_texts += [""] * (max_length - len(output_texts))
+            max_length = max(len(inputs), len(outputs))
+            if len(root.blocks) > 0:
+                directories += [f"{append}│    "] * (max_length - len(directories))
+            else:
+                directories += [f"{append}    "] * (max_length - len(directories))
+            input_args += [""] * (max_length - len(input_args))
+            inputs += [""] * (max_length - len(inputs))
+            input_coefficients += [""] * (max_length - len(input_coefficients))
+            outputs += [""] * (max_length - len(outputs))
+            output_coefficients += [""] * (max_length - len(output_coefficients))
             params += [""] * (max_length - len(params))
 
-            for i in range(max(len(lines), len(input_texts), len(output_texts))):
-                name_text = lines[i]
-                input_text = input_texts[i]
-                input_args_text = input_args_texts[i]
-                output_text = output_texts[i]
-                param_text = params[i]
-                n_params = root.n_params
-                per = (n_params / self.total_params) * 100
+            for i in range(max(len(directories), len(inputs), len(outputs))):
+                self.print_string(directories[i], input_args[i], inputs[i], input_coefficients[i], outputs[i], output_coefficients[i],
+                                  params[i],
+                                  directory_length, input_arg_length, input_shape_length, input_coefficient_length, output_shape_length,
+                                  output_coefficient_length, param_n_length, param_per_length, is_boundary=False)
 
-                name_text = f"{name_text:<{name_max_length}}"
-                input_text = f"{input_text:<{input_max_length}}"
-                input_args_text = f"{input_args_text:>{input_max_args_length}}"
-                output_text = f"{output_text:<{output_max_length}}"
-                if n_params == 0:
-                    param_text = f"{param_text:>{param_max_length}}"
-                else:
-                    param_text = f"{param_text:>{param_max_length}} ({per:.1f}%)"
-
-                print(f"{name_text} │ {input_args_text}{input_text} │ {output_text} │ {param_text}")
-
-            if len(input_texts) > 1 or len(output_texts) > 1:
-                empty = ""
+            if len(inputs) > 1 or len(outputs) > 1:
                 if len(root.blocks) > 0:
-                    name_text = f"{append + '│    ':<{name_max_length}}"
+                    directory = f"{append + '│    ':<{directory_length}}"
                 else:
-                    name_text = f"{append + '     ':<{name_max_length}}"
-                input_text = f"{empty:>{input_max_length}}"
-                input_args_text = f"{empty:>{input_max_args_length}}"
-                output_text = f"{empty:>{output_max_length}}"
-                param_text = f"{empty:>{param_max_length}}"
-                print(f"{name_text} │-{input_args_text}{input_text}-│-{output_text}-│ {param_text}")
+                    directory = f"{append + '     ':<{directory_length}}"
+
+                self.print_string(directory, empty, empty, empty, empty, empty, empty,
+                                  directory_length, input_arg_length, input_shape_length, input_coefficient_length, output_shape_length,
+                                  output_coefficient_length, param_n_length, param_per_length, is_boundary=True)
+                before_is_boundary = True
+            else:
+                before_is_boundary = False
 
             if is_last and len(root.blocks) == 0:
-                empty = ""
-                name_text = f"{append:<{name_max_length}}"
-                input_text = f"{empty:>{input_max_length}}"
-                input_args_text = f"{empty:>{input_max_args_length}}"
-                output_text = f"{empty:>{output_max_length}}"
-                param_text = f"{empty:>{param_max_length}}"
-                print(f"{name_text} │ {input_args_text}{input_text} │ {output_text} │ {param_text}")
+                self.print_string(append, empty, empty, empty, empty, empty, empty,
+                                  directory_length, input_arg_length, input_shape_length, input_coefficient_length, output_shape_length,
+                                  output_coefficient_length, param_n_length, param_per_length, is_boundary=False)
+                before_is_space = True
+            else:
+                before_is_space = False
 
             for i, block in enumerate(root.blocks):
                 if i == length - 1:
                     if is_last:
-                        recursive(block, append, is_last=True)
+                        before_is_boundary, before_is_space = recursive(block, append, is_last=True, before_is_boundary=before_is_boundary,
+                                                                        before_is_space=before_is_space)
                     else:
-                        recursive(block, append, is_last=True)
+                        before_is_boundary, before_is_space = recursive(block, append, is_last=True, before_is_boundary=before_is_boundary,
+                                                                        before_is_space=before_is_space)
                 else:
                     if is_last:
-                        recursive(block, append)
+                        before_is_boundary, before_is_space = recursive(block, append, before_is_boundary=before_is_boundary, before_is_space=before_is_space)
                     else:
-                        recursive(block, append)
+                        before_is_boundary, before_is_space = recursive(block, append, before_is_boundary=before_is_boundary, before_is_space=before_is_space)
+
+            return before_is_boundary, before_is_space
 
         for root in self.roots:
             recursive(root, is_last=True)
 
-    def print_line(self, block, directory_text, input_args_text, input_size_text, output_size_text, param_text):
-        print(f"{directory_text} │ {input_args_text}{input_size_text} │ {output_size_text} │ {param_text}")
+        print(line)
+        print(indexes_str)
+        print(line)
+        print()
 
-    def input_texts(self, block):
-        lines = []
-        shape = self.get_shape(block.module_in)
-        line = [str(list(s)) for s in shape]
-        lines.append(line)
-        for b in block.blocks:
-            lines += self.input_texts(b)
-
-        return lines
-
-    def output_texts(self, block):
-        lines = []
-        shape = self.get_shape(block.module_out)
-        line = []
-        for s in shape:
-            if isinstance(s, list):
-                line.append(f"{str(list(s[0]))} * {len(s)}")
-            else:
-                line.append(str(list(s)))
-
-        lines.append(line)
-        for b in block.blocks:
-            lines += self.output_texts(b)
-
-        return lines
-
-    def space(self, depth):
-        s = ""
-        for _ in range(depth):
-            s += ' ' * 4
-        return s
+    # ==============================================================================
+    #
+    #   Hook
+    #
+    # ==============================================================================
 
     def register_hook(self, module):
 
@@ -485,7 +618,7 @@ class Summary:
         for i, (key, value) in enumerate(parameter_dict.items()):
             if i < len(module_in):
                 if value.kind == inspect.Parameter.VAR_POSITIONAL:
-                    input_kwargs[key] = module_in[i:-1]
+                    input_kwargs[key] = module_in[i:]
                 else:
                     input_kwargs[key] = module_in[i]
             else:
@@ -513,7 +646,14 @@ class Summary:
     def tensors_to_size_str(tensors):
         out = OrderedDict()
         for key, value in tensors.items():
-            out[key] = InputSizeStr(value)
+            size_str = InputSizeStr.init(value)
+            if isinstance(size_str, list):
+                for i, s in enumerate(size_str):
+                    key = f"*args({i})"
+                    out[key] = s
+
+            else:
+                out[key] = size_str
         return out
 
     @staticmethod
