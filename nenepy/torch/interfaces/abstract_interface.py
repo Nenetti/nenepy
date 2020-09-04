@@ -186,4 +186,7 @@ class AbstractInterface(metaclass=ABCMeta):
             if hook_out is not None:
                 output = hook_out
 
+        if len(output) == 1:
+            output = output[0]
+
         return output

@@ -85,7 +85,7 @@ class AbstractImageVisualizer:
         return torch.from_numpy(label_text_area).permute(dims=(2, 0, 1))
 
     @classmethod
-    def _make_grid_image(cls, image_dict, colors=None, max_n_column=8, font=None, font_size=-1):
+    def _make_grid_image(cls, image_dict, colors=None, max_n_column=-1, font=None, font_size=-1):
         """
 
         Args:
@@ -102,6 +102,9 @@ class AbstractImageVisualizer:
             N * [3, H, W] -> [3, H, W]
 
         """
+        if max_n_column == -1:
+            max_n_column = len(image_dict)
+
         # ----- Color ----- #
         if colors is None:
             colors = [None] * len(image_dict)
@@ -271,7 +274,7 @@ class AbstractImageVisualizer:
         return out_image
 
     @staticmethod
-    def _calc_optimal_grid_size(n_images, max_n_column=8):
+    def _calc_optimal_grid_size(n_images, max_n_column):
         """
         Calculate optimal grid size.
 
@@ -326,6 +329,16 @@ class AbstractImageVisualizer:
 
         """
         return ImageDraw.Draw(Image.fromarray(np.zeros(shape=(1, 1)))).textsize(text, font)
+
+    @staticmethod
+    def _gray_scale_to_rgb(image):
+        n_channels = image.shape[0]
+        if n_channels == 1:
+            return torch.cat([image, image, image], dim=0)
+        elif n_channels == 3:
+            return image
+        else:
+            raise ValueError(f"Unexpected GrayScale Image Shape. {image.shape}")
 
     @staticmethod
     def _mask_to_heatmap(mask):
