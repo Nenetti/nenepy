@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 from torch.distributions import kl_divergence, Distribution
 
@@ -14,7 +15,7 @@ class KullbackLeibler(nn.Module):
         super(KullbackLeibler, self).__init__()
         self.prior = prior
 
-    def forward(self, x):
+    def forward(self, mu, sigma):
         """
 
         Args:
@@ -23,4 +24,5 @@ class KullbackLeibler(nn.Module):
         Returns:
 
         """
-        return kl_divergence(self.prior, x)
+        return -0.5 * torch.sum(1 + torch.log(sigma.pow(2)) - mu.pow(2) - sigma.pow(2))
+        # return kl_divergence(self.prior, Normal(mu, sigma))
