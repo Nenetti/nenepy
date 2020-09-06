@@ -1,10 +1,14 @@
 import inspect
 import sys
 from collections import OrderedDict, Counter
+from time import sleep
 
 import numpy as np
 import torch
 import torch.nn as nn
+from torchsummary import summary
+
+summary
 
 
 class Block:
@@ -18,12 +22,15 @@ class Block:
     output_each_max_dims = 0
     output_coefficient_length = 0
 
-    directory_length = 0
+    architecture_length = 0
     input_shape_length = 0
     input_arg_length = 0
     output_shape_length = 0
-    param_n_length = 0
+    param_length = 0
     param_per_length = 0
+    weight_param_length = 0
+    bias_param_length = 0
+    train_length = 0
 
     all_blocks = []
 
@@ -32,86 +39,171 @@ class Block:
         self.module_in = None
         self.module_out = None
         self.blocks = []
-        self.kwargs = []
         self.input_kwargs = None
         self.output_kwargs = None
         self.depth = 0
         self.bottom = False
-        self.n_params = 0
-        self.weight_grad = None
+
+        self.is_trained_weight = False
+        self.trained_weight_params = 0
+        self.untrained_weight_params = 0
+
+        self.is_trained_bias = False
+        self.trained_bias_params = 0
+        self.untrained_bias_params = 0
+
         self.all_blocks.append(self)
 
-    @classmethod
-    def input_length(cls):
-        length = cls.input_arg_length + cls.input_shape_length + cls.input_coefficient_length
-        if cls.input_arg_length > 0:
-            length += len(": ")
-        if cls.input_coefficient_length > 0:
-            length += len(" * ")
+    def add_block(self, block):
+        self.blocks.append(block)
 
-        return length
+    def add_weight_params(self, n_params, requires_grad):
+        self.is_trained_weight = requires_grad
 
-    @classmethod
-    def output_length(cls):
-        length = cls.output_shape_length + cls.output_coefficient_length
-        if cls.output_coefficient_length > 0:
-            length += len(" * ")
-        return length
+        if requires_grad:
+            self.trained_weight_params += n_params
+        else:
+            self.untrained_weight_params += n_params
 
-    @classmethod
-    def param_length(cls):
-        length = cls.param_n_length + cls.param_per_length
-        if cls.param_n_length > 0:
-            length += len(" ")
-        return length
+    def add_bias_params(self, n_params, requires_grad):
+        self.is_trained_bias = requires_grad
+
+        if requires_grad:
+            self.trained_bias_params += n_params
+        else:
+            self.untrained_bias_params += n_params
+
+    # Property
+    @property
+    def input_size(self):
+        return sum([size_str.size() for size_str in self.input_kwargs.values()])
 
     @property
-    def name(self):
+    def output_size(self):
+        size = 0
+        for size_str in self.output_kwargs.values():
+            s = size_str.size()
+            if self.is_trained:
+                size += s * 2
+            else:
+                size += s
+
+        return size
+
+    @property
+    def weight_n_params(self):
+        return self.trained_weight_params + self.untrained_weight_params
+
+    @property
+    def bias_n_params(self):
+        return self.trained_bias_params + self.untrained_bias_params
+
+    @property
+    def n_params(self):
+        return self.trained_weight_params + self.untrained_weight_params + self.trained_bias_params + self.untrained_bias_params
+
+    @property
+    def is_trained(self):
+        is_train = self.is_trained_weight or self.is_trained_bias
+        if is_train:
+            return "✓"
+        else:
+            return ""
+
+    # String
+
+    @property
+    def architecture_str(self):
         return str(self.module.__class__).split(".")[-1].split("'")[0]
 
     @property
-    def directory(self):
-        return f"{self.name:<{self.directory_length}}"
-
-    @property
-    def param(self):
+    def param_str(self):
         if self.n_params == 0:
             return ""
         else:
             return f"{self.n_params:,}"
 
     @property
-    def param_per(self):
+    def weight_param_str(self):
+        n_params = self.trained_weight_params + self.untrained_weight_params
+        if n_params == 0:
+            return ""
+        else:
+            return f"{n_params:,}"
+
+    @property
+    def bias_param_str(self):
+        n_params = self.trained_bias_params + self.untrained_bias_params
+        if n_params == 0:
+            return ""
+        else:
+            return f"{n_params:,}"
+
+    @property
+    def param_per_str(self):
         if self.n_params == 0:
             return ""
         else:
             per = (self.n_params / self.total_params) * 100
-            return f"({per:.1f}%)"
+            text = f"{per:.1f}"
+            if text == "0.0":
+                text = "0"
+            return text
 
     @property
-    def param_text(self):
-        return f"{self.param:>{self.param_n_length}} {self.param_per:>{self.param_per_length}}"
-
-    @property
-    def input_args(self):
+    def input_str_args(self):
         if len(self.input_kwargs) > 1:
             return [f"{arg}" for arg in self.input_kwargs.keys()]
         else:
             return [""]
 
     @property
-    def input_shapes(self):
+    def input_str_shapes(self):
         return [f"{size_str.tensors_to_str(self.output_each_max_dims)}" for size_str in self.input_kwargs.values()]
 
     @property
-    def input_coefficients(self):
+    def input_str_coefficients(self):
         return [f"{size_str.coefficient}" for size_str in self.input_kwargs.values()]
 
     @property
+    def output_str_shapes(self):
+        return [f"{size_str.tensors_to_str(self.output_each_max_dims)}" for size_str in self.output_kwargs.values()]
+
+    @property
+    def output_str_coefficients(self):
+        return [f"{size_str.coefficient}" for size_str in self.output_kwargs.values()]
+
+    # Text
+
+    @property
+    def architecture_text(self):
+        return f"{self.architecture_str:<{self.architecture_length}}"
+
+    @property
+    def param_per_text(self):
+        return f"{self.param_per_str:>{self.param_per_length}}"
+
+    @property
+    def param_text(self):
+        return f"{self.param_str:>{self.param_length}} {self.param_per_str:>{self.param_per_length}}"
+
+    @property
+    def weight_param_text(self):
+        return f"{self.weight_param_str:>{self.weight_param_length}}"
+
+    @property
+    def bias_param_text(self):
+        return f"{self.bias_param_str:>{self.bias_param_length}}"
+
+    @property
+    def is_train_text(self):
+        return f"{self.is_trained:^{self.train_length}}"
+
+    @property
     def input_texts(self):
-        args = self.input_args
-        shapes = self.input_shapes
-        coefficient = self.input_coefficients
+        args = self.input_str_args
+        shapes = self.input_str_shapes
+        coefficient = self.input_str_coefficients
         texts = [None] * len(shapes)
         for i in range(len(shapes)):
             if args[i] != "":
@@ -128,17 +220,9 @@ class Block:
         return texts
 
     @property
-    def output_shapes(self):
-        return [f"{size_str.tensors_to_str(self.output_each_max_dims)}" for size_str in self.output_kwargs.values()]
-
-    @property
-    def output_coefficients(self):
-        return [f"{size_str.coefficient}" for size_str in self.output_kwargs.values()]
-
-    @property
     def output_texts(self):
-        shapes = self.output_shapes
-        coefficient = self.output_coefficients
+        shapes = self.output_str_shapes
+        coefficient = self.output_str_coefficients
         texts = [None] * len(shapes)
         for i in range(len(shapes)):
             if self.output_coefficient_length == 0:
@@ -149,11 +233,47 @@ class Block:
                 texts[i] = f"{shapes[i]:<{self.output_shape_length}}   {coefficient[i]:<{self.output_coefficient_length}}"
         return texts
 
-    def add(self, module):
-        self.blocks.append(module)
+    # classmethod
+    @classmethod
+    def get_total_params(cls):
+        return cls.get_trainable_params() + cls.get_untrainable_params()
+
+    @classmethod
+    def get_trainable_params(cls):
+        params = 0
+        for block in cls.all_blocks:
+            params += block.trained_weight_params + block.trained_bias_params
+        return params
+
+    @classmethod
+    def get_untrainable_params(cls):
+        params = 0
+        for block in cls.all_blocks:
+            params += block.untrained_weight_params + block.untrained_bias_params
+        return params
+
+    @classmethod
+    def get_input_length(cls):
+        length = cls.input_arg_length + cls.input_shape_length + cls.input_coefficient_length
+        if cls.input_arg_length > 0:
+            length += len(": ")
+        if cls.input_coefficient_length > 0:
+            length += len(" * ")
+
+        return length
+
+    @classmethod
+    def get_output_length(cls):
+        length = cls.output_shape_length + cls.output_coefficient_length
+        if cls.output_coefficient_length > 0:
+            length += len(" * ")
+        return length
 
     @classmethod
     def calc_length(cls):
+
+        cls.total_params = cls.get_total_params()
+
         cls.input_max_tensor_dims = cls._get_input_max_tensor_dims()
         cls.input_each_max_dims = cls._get_input_each_dim_max_size()
         cls.input_coefficient_length = cls._get_input_max_coefficient()
@@ -165,8 +285,11 @@ class Block:
         cls.input_shape_length = cls._get_max_input_shape_length()
         cls.input_arg_length = cls._get_max_input_args_length()
         cls.output_shape_length = cls._get_max_output_length()
-        cls.param_n_length = cls._get_max_param_length()
+        cls.param_length = cls._get_max_param_length()
         cls.param_per_length = cls._get_max_param_per_length()
+        cls.weight_param_length = cls._get_max_weight_param_per_length()
+        cls.bias_param_length = cls._get_max_bias_param_per_length()
+        cls.train_length = cls._get_max_train_length()
 
     @classmethod
     def _get_input_max_tensor_dims(cls):
@@ -269,11 +392,37 @@ class Block:
         return max_length
 
     @classmethod
-    def _get_max_param_per_length(cls):
-        max_length = 0
+    def _get_max_weight_param_per_length(cls):
+        max_length = len("Weight")
         for block in cls.all_blocks:
-            per = (block.n_params / cls.total_params) * 100
-            length = len(f"({per:.1f}%)")
+            length = len(f"{block.weight_n_params :,}")
+            max_length = max(max_length, length)
+
+        return max_length
+
+    @classmethod
+    def _get_max_bias_param_per_length(cls):
+        max_length = len("Bias")
+        for block in cls.all_blocks:
+            length = len(f"{block.bias_n_params :,}")
+            max_length = max(max_length, length)
+
+        return max_length
+
+    @classmethod
+    def _get_max_param_per_length(cls):
+        max_length = len("Total(%)")
+        for block in cls.all_blocks:
+            length = len(block.param_per_str)
+            max_length = max(max_length, length)
+
+        return max_length
+
+    @classmethod
+    def _get_max_train_length(cls):
+        max_length = len("Train")
+        for block in cls.all_blocks:
+            length = len(f"{block.is_trained}")
             max_length = max(max_length, length)
 
         return max_length
@@ -281,8 +430,8 @@ class Block:
 
 class InputSizeStr:
 
-    def __init__(self, string, is_tensor, coefficient):
-
+    def __init__(self, tensor, string, is_tensor, coefficient):
+        self.tensor = tensor
         self.string = string
         self.is_tensor = is_tensor
         self.coefficient = coefficient
@@ -319,7 +468,7 @@ class InputSizeStr:
                         is_tensor = True
                         string = list(map(str, list(shapes_dict[value].size())))
                         coefficient = f"{n}"
-                        size_str = InputSizeStr(string, is_tensor, coefficient)
+                        size_str = InputSizeStr(tensor, string, is_tensor, coefficient)
                         out.append(size_str)
                     return out
 
@@ -333,7 +482,7 @@ class InputSizeStr:
             is_tensor = False
             string = "Unknown"
 
-        return InputSizeStr(string, is_tensor, coefficient)
+        return InputSizeStr(tensor, string, is_tensor, coefficient)
 
     def tensors_to_str(self, each_max_dims):
         if self.is_tensor:
@@ -341,6 +490,18 @@ class InputSizeStr:
             return f"[{', '.join(shape)}]"
         else:
             return self.string
+
+    def size(self):
+        def recursive(tensor):
+            if isinstance(tensor, torch.Tensor):
+                return np.prod(list(tensor.size()))
+            elif isinstance(tensor, (list, tuple)):
+                return sum([recursive(tensor) for tensor in tensor])
+            elif isinstance(tensor, dict):
+                return sum([recursive(tensor) for tensor in tensor.values()])
+            return 0
+
+        return recursive(self.tensor)
 
     def __str__(self):
         return str(self.string)
@@ -395,58 +556,17 @@ class Summary:
         self.model.apply(self.register_hook)
 
         # make a forward pass
-        # print(x.shape)
-        self.model(*x)
-        # print(len(self.ordered_blocks))
+        self.model(*x, **kwargs)
 
-        self.total_params = 0
-        for block in self.ordered_blocks:
-            self.total_params += block.n_params
-        Block.total_params = self.total_params
         Block.calc_length()
 
         self.calc_depth()
         self.name_texts()
-        # sys.exit()
 
         # remove these hooks
         for h in self.hooks:
             h.remove()
-
         sys.exit()
-        #
-        # print("----------------------------------------------------------------")
-        # line_new = "{:>20}  {:>25} {:>15}".format("Layer (type)", "Output Shape", "Param #")
-        # print(line_new)
-        # print("================================================================")
-        # total_params = self.total_params
-        # total_input = sum([self.get_memory_size(block.module_in) for block in self.ordered_blocks])
-        # total_output = sum([self.get_memory_size(block.module_out) for block in self.ordered_blocks])
-        # trainable_params = 0
-        # input_param_size = total_input
-        #
-        # total_input_size = abs(input_param_size * self.batch_size * 4. / (1024 ** 2.))
-        # total_output_size = abs(2 * self.batch_size * total_output * 4. / (1024 ** 2.))  # x2 for gradients
-        # total_params_size = abs(total_params * 4. / (1024 ** 2.))
-        # total_size = total_params_size + total_output_size + total_input_size
-        #
-        # print("================================================================")
-        # print(f"Total params:           {total_params:,}")
-        # print(f"Trainable params:       {trainable_params:,}")
-        # print(f"Non-trainable params:   {total_params - trainable_params:,}")
-        # print("----------------------------------------------------------------")
-        # print(f"Input size (MB):                    {total_input_size / self.batch_size:.2f}")
-        # print(f"Forward/backward pass size (MB):    {total_output_size / self.batch_size:.2f}")
-        # print(f"Params size (MB):                   {total_params_size / self.batch_size:.2f}")
-        # print(f"Estimated Total Size (MB):          {total_size / self.batch_size:.2f}")
-        # print("----------------------------------------------------------------")
-        # print(f"Total Input size (MB):                  {total_input_size:.2f}")
-        # print(f"Total Input size (MB):                  {total_input_size:.2f}")
-        # print(f"Total Forward/backward pass size (MB):  {total_output_size:.2f}")
-        # print(f"Total Params size (MB):                 {total_params_size:.2f}")
-        # print(f"Total Estimated Total Size (MB):        {total_size:.2f}")
-        # print("----------------------------------------------------------------")
-        # return summary
 
     def calc_depth(self):
 
@@ -466,7 +586,7 @@ class Summary:
         max_length = 0
         for block in self.ordered_blocks:
             index_space = " " * 4 * block.depth
-            text = f"{index_space}    {block.name}    "
+            text = f"{index_space}    {block.architecture_str}    "
             max_length = max(max_length, len(text))
 
         return max_length
@@ -496,63 +616,86 @@ class Summary:
 
         return directories, append
 
-    def print_string(self, directory, input_text, output_text, param_text, is_boundary):
+    def print_string(self, directory, input_text, output_text, weight_param_text, bias_param_text, param_per_text, is_train_text, is_boundary):
 
         partition = "  │  "
         if is_boundary:
             partition = " -│- "
 
-        print(f"{directory}{partition}{input_text}{partition}{output_text}{partition}{param_text}  │")
+        print(
+            f"{directory}{partition}{input_text}{partition}{output_text}{partition}{weight_param_text}{partition}{bias_param_text}{partition}{param_per_text}{partition}{is_train_text}  │ "
+        )
+
+    @staticmethod
+    def to_line(partition, *args):
+        return partition.join(args)
 
     def name_texts(self):
 
-        directory_length = self._get_max_directory_structure_length()
+        architecture_length = self._get_max_directory_structure_length()
 
-        input_length = Block.input_length()
-        output_length = Block.output_length()
-        param_length = Block.param_length()
+        input_length = Block.get_input_length()
+        output_length = Block.get_output_length()
+        weight_length = Block.weight_param_length
+        bias_length = Block.bias_param_length
+        param_per_length = Block.param_per_length
+        train_length = Block.train_length
+        param_length = weight_length + bias_length + param_per_length + train_length + 15
 
+        directory_empty = f"{' ' * architecture_length}"
         input_empty = f"{' ' * input_length}"
         output_empty = f"{' ' * output_length}"
-        param_empty = f"{' ' * param_length}"
+        weight_empty = f"{' ' * weight_length}"
+        bias_empty = f"{' ' * bias_length}"
+        param_per_empty = f"{' ' * param_per_length}"
+        train_empty = f"{' ' * train_length}"
+        param_empty = f"{'-' * param_length}"
 
-        line = "--│--".join([
-            f"{'-' * directory_length}",
-            f"{'-' * input_length}",
-            f"{'-' * output_length}",
-            f"{'-' * param_length}",
-        ]) + "--│ "
+        architecture_title = f"{'Network Architecture':^{architecture_length}}"
+        input_title = f"{'Input':^{input_length}}"
+        output_title = f"{'Output':^{output_length}}"
+        param_title = f"{'Parameters':^{param_length}}"
+        weight_title = f"{'Weight':^{weight_length}}"
+        bias_title = f"{'Bias':^{bias_length}}"
+        param_per_title = f"{'Total(%)':^{param_per_length}}"
+        train_title = f"{'Train':^{train_length}}"
 
-        line2 = "  │  ".join([
-            f"{' ' * directory_length}",
-            f"{' ' * input_length}",
-            f"{' ' * output_length}",
-            f"{' ' * param_length}",
-        ]) + "  │ "
-
-        indexes_str = "  │  ".join([
-            f"{'Network Architecture':^{directory_length}}",
-            f"{'Input':^{input_length}}",
-            f"{'Output':^{output_length}}",
-            f"{'Parameters':^{param_length}}",
-        ]) + "  │  "
+        param_line = self.to_line("     ", weight_title, bias_title, param_per_title, train_title)
+        border_line = self.to_line("==│==", '=' * architecture_length, '=' * input_length, '=' * output_length, '=' * param_length) + "==│"
+        param_detail_line = self.to_line("  │  ", directory_empty, input_empty, output_empty, param_line) + "  │"
+        param_line = self.to_line("  │  ", directory_empty, input_empty, output_empty, param_title) + "  │"
+        title_line = self.to_line("  │  ", architecture_title, input_title, output_title, param_empty) + "  │"
 
         print()
-        print(line)
-        print(indexes_str)
-        print(line)
-        print(line2)
+        print(border_line)
+        print(param_line)
+        print(title_line)
+        print(param_detail_line)
+        print(border_line)
 
         def recursive(root, append="", is_last=False, before_is_boundary=False, before_is_space=True):
 
             n_child_blocks = len(root.blocks)
-            directory, inputs, outputs, params, boundaries = root.name, root.input_texts, root.output_texts, [root.param_text], [False]
+            directory = root.architecture_str
+            inputs = root.input_texts
+            outputs = root.output_texts
+            weight_params = [root.weight_param_text]
+            bias_params = [root.bias_param_text]
+            per_params = [root.param_per_text]
+            is_trains = [root.is_train_text]
+
+            is_boundaries = [False]
+
             max_length = max(len(inputs), len(outputs))
-            directories, new_append = self.to_directories(root, directory, directory_length, max_length, append, is_last)
+            directories, new_append = self.to_directories(root, directory, architecture_length, max_length, append, is_last)
             inputs += [" " * len(inputs[0])] * (max_length - len(inputs))
             outputs += [" " * len(outputs[0])] * (max_length - len(outputs))
-            params += [" " * len(params[0])] * (max_length - len(params))
-            boundaries += [False] * (max_length - len(boundaries))
+            weight_params += [" " * len(weight_params[0])] * (max_length - len(weight_params))
+            bias_params += [" " * len(bias_params[0])] * (max_length - len(bias_params))
+            per_params += [" " * len(per_params[0])] * (max_length - len(per_params))
+            is_trains += [" " * len(is_trains[0])] * (max_length - len(is_trains))
+
+            is_boundaries += [False] * (max_length - len(is_boundaries))
 
             need_before_boundary = (max_length > 1) and (not before_is_boundary)
             need_before_space = (n_child_blocks > 0) and (not before_is_space and not before_is_boundary)
@@ -560,27 +703,30 @@ class Summary:
             need_space = is_last and len(root.blocks) == 0
 
             if need_before_space:
-                d = f"{f'{append}│ ':<{directory_length}}"
-                self.print_string(d, input_empty, output_empty, param_empty, False)
+                d = f"{f'{append}│ ':<{architecture_length}}"
+                self.print_string(d, input_empty, output_empty, weight_empty, bias_empty, param_per_empty, train_empty, False)
 
             if need_before_boundary:
-                d = f"{f'{append}│    ':<{directory_length}}"
-                self.print_string(d, input_empty, output_empty, param_empty, True)
+                if root.depth != 0:
+                    d = f"{f'{append}│    ':<{architecture_length}}"
+                else:
+                    d = f"{f'{append}     ':<{architecture_length}}"
+                self.print_string(d, input_empty, output_empty, weight_empty, bias_empty, param_per_empty, train_empty, True)
 
             for i in range(len(directories)):
-                self.print_string(directories[i], inputs[i], outputs[i], params[i], boundaries[i])
+                self.print_string(directories[i], inputs[i], outputs[i], weight_params[i], bias_params[i], per_params[i], is_trains[i], is_boundaries[i])
 
             before_is_space = False
             before_is_boundary = False
             if need_boundary:
                 d = f"{new_append + '│    '}" if len(root.blocks) > 0 else f"{new_append + '     '}"
-                d = f"{d:<{directory_length}}"
-                self.print_string(d, input_empty, output_empty, param_empty, True)
+                d = f"{d:<{architecture_length}}"
+                self.print_string(d, input_empty, output_empty, weight_empty, bias_empty, param_per_empty, train_empty, True)
                 before_is_boundary = True
 
             if need_space:
-                d = f"{new_append:<{directory_length}}"
-                self.print_string(d, input_empty, output_empty, param_empty, False)
+                d = f"{new_append:<{architecture_length}}"
+                self.print_string(d, input_empty, output_empty, weight_empty, bias_empty, param_per_empty, train_empty, False)
                 before_is_space = True
 
             for i, block in enumerate(root.blocks):
@@ -601,14 +747,88 @@ class Summary:
 
             return before_is_boundary, before_is_space
 
-        for root in self.roots:
-            recursive(root, is_last=True)
+        for r in self.roots:
+            recursive(r, is_last=True)
 
-        print(line2)
-        print(line)
-        print(indexes_str)
-        print(line)
-        print()
+        print(border_line)
+        print(param_detail_line)
+        print(title_line)
+        print(param_line)
+        print(border_line)
+
+        total_params = Block.total_params
+        trainable_param_size = Block.get_trainable_params()
+        untrainable_param_size = Block.get_untrainable_params()
+        total_input_size = (sum([r.input_size for r in self.roots]) * 4) / (1024 ** 2)
+        total_output_size = (2 * sum([r.output_size for r in Block.all_blocks]) * 4) / (1024 ** 2)
+        total_params_size = (Block.total_params * 4) / (1024 ** 2)
+        total_size = total_params_size + total_output_size + total_input_size
+
+        total_params_title = "Total params"
+        trainable_params_title = "Trainable params"
+        untrainable_params_title = "Non-trainable params"
+
+        input_size_title = "Input size (/Batch) (MB)"
+        forward_backward_size_title = "Forward/backward pass size (/Batch) (MB)"
+        params_size_title = "Params size (/Batch) (MB)"
+        estimated_total_size_title = "Estimated Size (/Batch) (MB)"
+
+        total_input_size_title = "Total Input size (MB)"
+        total_forward_backward_size_title = "Total Forward/backward pass size (MB)"
+        total_params_size_title = "Total Params size (MB)"
+        total_estimated_total_size_title = "Total Estimated Size (MB)"
+
+        total_params_text = f"{total_params:,}"
+        trainable_params_text = f"{trainable_param_size:,}"
+        untrainable_params_text = f"{untrainable_param_size:,}"
+
+        input_size_text = f"{total_input_size / self.batch_size:.2f}"
+        forward_backward_size_text = f"{total_output_size / self.batch_size:.2f}"
+        params_size_text = f"{total_params_size / self.batch_size:.2f}"
+        estimated_total_size_text = f"{total_size / self.batch_size:.2f}"
+
+        total_input_size_text = f"{total_input_size:.2f}"
+        total_forward_backward_size_text = f"{total_output_size:.2f}"
+        total_params_size_text = f"{total_params_size:.2f}"
+        total_estimated_total_size_text = f"{total_size:.2f}"
+
+        titles = [
+            total_params_title,
+            trainable_params_title,
+            untrainable_params_title,
+            "",
+            input_size_title,
+            forward_backward_size_title,
+            params_size_title,
+            estimated_total_size_title,
+            "",
+            total_input_size_title,
+            total_forward_backward_size_title,
+            total_params_size_title,
+            total_estimated_total_size_title,
+        ]
+
+        values = [
+            total_params_text,
+            trainable_params_text,
+            untrainable_params_text,
+            "",
+            input_size_text,
+            forward_backward_size_text,
+            params_size_text,
+            estimated_total_size_text,
+            "",
+            total_input_size_text,
+            total_forward_backward_size_text,
+            total_params_size_text,
+            total_estimated_total_size_text,
+        ]
+
+        title_length = max([len(t) for t in titles])
+        value_length = max([len(t) for t in values])
+
+        for title, values in zip(titles, values):
+            print(f"{title:>{title_length}}:   {values:>{value_length}}")
 
     # ==============================================================================
     #
@@ -666,15 +886,15 @@ class Summary:
         block.output_kwargs = self.tensors_to_size_str(output_kwargs)
 
         if len(self.blocks) > 0:
-            self.blocks[-1].add(block)
+            self.blocks[-1].add_block(block)
 
-        n_params = 0
         if hasattr(module, "weight") and hasattr(module.weight, "size"):
-            n_params += torch.prod(torch.LongTensor(list(module.weight.size()))).item()
-            block.weight_grad = module.weight.requires_grad
+            n_params = torch.prod(torch.LongTensor(list(module.weight.size()))).item()
+            block.add_weight_params(n_params, module.weight.requires_grad)
+
         if hasattr(module, "bias") and hasattr(module.bias, "size"):
-            n_params += torch.prod(torch.LongTensor(list(module.bias.size()))).item()
-        block.n_params = n_params
+            n_params = torch.prod(torch.LongTensor(list(module.bias.size()))).item()
+            block.add_bias_params(n_params, module.bias.requires_grad)
 
     @staticmethod
     def tensors_to_size_str(tensors):
@@ -690,20 +910,20 @@ class Summary:
                 out[key] = size_str
         return out
 
-    @staticmethod
-    def get_memory_size(tensors):
-        def recursive(tensor):
-            total = 0
-            if isinstance(tensor, torch.Tensor):
-                total += np.prod(list(tensor.size()))
-
-            elif isinstance(tensor, (list, tuple)):
-                for t in tensor:
-                    total += recursive(t)
-            elif isinstance(tensor, dict):
-                for t in tensor.values():
-                    total += recursive(t)
-
-            return total
-
-        return recursive(tensors)
+    # @staticmethod
+    # def get_memory_size(tensors):
+    #     def recursive(tensor):
+    #         total = 0
+    #         if isinstance(tensor, torch.Tensor):
+    #             total += np.prod(list(tensor.size()))
+    #
+    #         elif isinstance(tensor, (list, tuple)):
+    #             for t in tensor:
+    #                 total += recursive(t)
+    #         elif isinstance(tensor, dict):
+    #             for t in tensor.values():
+    #                 total += recursive(t)
+    #
+    #         return total
+    #
+    #     return recursive(tensors)

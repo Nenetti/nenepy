@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from nenepy.torch.models.modules.concat import Concat
+from nenepy.torch.nn.modules.concat import Concat
 from torch.functional import F
 
 class ASPP(nn.Module):
