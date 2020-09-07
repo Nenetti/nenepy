@@ -20,4 +20,7 @@ class ToTensor(transforms.ToTensor):
         return F.to_tensor(pic)
 
     def __call__(self, *images):
-        return (self.to_tensor(img) for img in images)
+        if len(images) > 1:
+            return (self.to_tensor(img) for img in images)
+
+        return self.to_tensor(*images)

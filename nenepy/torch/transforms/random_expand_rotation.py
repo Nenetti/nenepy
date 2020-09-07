@@ -2,7 +2,7 @@ import random
 
 import numpy as np
 from PIL import Image
-from nenepy.torch.images import Color
+from nenepy.torch.utils.images import Color
 from torchvision import transforms
 
 class RandomExpandRotation:

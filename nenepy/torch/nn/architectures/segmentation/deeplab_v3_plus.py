@@ -22,6 +22,7 @@ class DeepLabV3Plus(AbstractNetworkArchitecture):
     def __init__(self, out_channels, backbone_pretrained=True, sg_psi=0.3):
         super(DeepLabV3Plus, self).__init__()
 
+        self.backbone_pretrained = backbone_pretrained
         self._sg_psi = sg_psi
 
         self._init_encoder(backbone_pretrained)
@@ -118,7 +119,8 @@ class DeepLabV3Plus(AbstractNetworkArchitecture):
     def train(self, mode=True):
         super(DeepLabV3Plus, self).train()
         self.requires_grad_(requires_grad=True)
-        self._backbone_encoder.requires_grad_(requires_grad=False)
+        if self.backbone_pretrained:
+            self._backbone_encoder.requires_grad_(requires_grad=False)
 
     def eval(self):
         super(DeepLabV3Plus, self).eval()

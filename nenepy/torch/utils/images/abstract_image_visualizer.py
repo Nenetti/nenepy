@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from PIL import Image, ImageDraw, ImageFont
 
-from nenepy.torch.images import Color
+from nenepy.torch.utils.images import Color
 
 
 class AbstractImageVisualizer:

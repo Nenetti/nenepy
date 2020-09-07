@@ -562,7 +562,7 @@ class Summary:
 
         self.calc_depth()
         self.name_texts()
-
+        sleep(1000)
         # remove these hooks
         for h in self.hooks:
             h.remove()
