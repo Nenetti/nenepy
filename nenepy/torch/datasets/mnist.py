@@ -70,7 +70,7 @@ class MNISTDataset(Dataset):
         img = torch.cat([img, img, img], dim=0)
 
         label = torch.from_numpy(label).type(torch.float32)
-        return img, label
+        return img, label, str(index)
 
         # labels = torch.from_numpy(label).type(torch.float32)
         # # Ignoring background
