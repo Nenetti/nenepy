@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from torch.distributions import Normal
 
 
 class VariationalAutoEncoder(nn.Module):
@@ -17,8 +18,8 @@ class VariationalAutoEncoder(nn.Module):
 
         return mu, sigma, z, decoder_out
 
-    @staticmethod
-    def sampling(mu, sigma):
-        std = torch.exp(0.5 * sigma)
-        eps = torch.randn_like(std)
-        return mu + (eps * std)
+    def sampling(self, mu, sigma):
+        if self.training:
+            return Normal(mu, sigma).rsample()
+        else:
+            return mu

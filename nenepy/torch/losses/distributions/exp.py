@@ -13,7 +13,9 @@ class Expectation(Loss):
 
         """
         super(Expectation, self).__init__()
-        self.p, self.q = self.to_loss(p, q)
+        p, q = self.to_loss(p, q)
+        self.p = p
+        self.q = q
 
     def forward(self):
         samples = self.q.sample()
