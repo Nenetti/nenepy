@@ -1,7 +1,7 @@
 import torch
 
 from nenepy.torch.nn.architectures import AbstractNetworkArchitecture
-from nenepy.torch.nn.architectures.backbones import resnet50
+from nenepy.torch.nn.architectures.backbones import ResNet50
 from nenepy.torch.nn.modules import GlobalCueInjection, StochasticGate, ASPP, DynamicUpsample
 from nenepy.torch.nn.modules.concat import Concat
 from torch import nn
@@ -35,7 +35,7 @@ class DeepLabV3Plus(AbstractNetworkArchitecture):
         Returns:
 
         """
-        self._backbone_encoder = resnet50(pretrained=backbone_pretrained)
+        self._backbone_encoder = ResNet50(pretrained=backbone_pretrained)
 
         self._gci = GlobalCueInjection()
 
@@ -184,7 +184,7 @@ class DeepLabV3Plus(AbstractNetworkArchitecture):
         """
 
         # 1. Feature Extraction (Backbone (ResNet))
-        low_feature, high_feature = self._backbone_encoder.feature_extraction(x)
+        _, low_feature, _, _, high_feature = self._backbone_encoder(x, feature_extraction=True)
 
         # 2. Atrous Spatial Pyramid Pooling (ASPP) (from deeplabv3)
         aspp_x = self._aspp(high_feature)

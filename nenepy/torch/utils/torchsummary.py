@@ -531,7 +531,7 @@ class Summary:
             batch_size:
             device:
         """
-        self.model = model
+        self.model = model.to(device)
         self.batch_size = batch_size
         self.device = device
         self.summary = OrderedDict()
@@ -573,7 +573,7 @@ class Summary:
         # remove these hooks
         for h in self.hooks:
             h.remove()
-        # sys.exit()
+        sys.exit()
 
     def calc_depth(self):
 
@@ -705,9 +705,9 @@ class Summary:
 
             is_boundaries += [False] * (max_length - len(is_boundaries))
 
-            need_before_boundary = (max_length > 1) and (not before_is_boundary)
+            need_before_boundary = ((max_length > 1) and (not before_is_boundary)) or root.depth == 0
             need_before_space = (n_child_blocks > 0) and (not before_is_space and not before_is_boundary)
-            need_boundary = max_length > 1
+            need_boundary = max_length > 1 or root.depth == 0
             need_space = is_last and len(root.blocks) == 0
 
             if need_before_space:

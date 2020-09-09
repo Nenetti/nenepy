@@ -1,9 +1,7 @@
 import torch.utils.model_zoo as model_zoo
 
-__all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
-           'resnet152']
-
-from .resnet import BasicBlock, Bottleneck, ResNet
+from .modules import BasicBlock, Bottleneck
+from .resnet import ResNet
 
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
@@ -11,64 +9,44 @@ model_urls = {
     'resnet50': 'https://download.pytorch.org/models/resnet50-19c8e357.pth',
     'resnet101': 'https://download.pytorch.org/models/resnet101-5d3b4d8f.pth',
     'resnet152': 'https://download.pytorch.org/models/resnet152-b121ed2d.pth',
+    'resnext50_32x4d': 'https://download.pytorch.org/models/resnext50_32x4d-7cdf4587.pth',
+    'resnext101_32x8d': 'https://download.pytorch.org/models/resnext101_32x8d-8ba56ff5.pth',
+    'wide_resnet50_2': 'https://download.pytorch.org/models/wide_resnet50_2-95faca4d.pth',
+    'wide_resnet101_2': 'https://download.pytorch.org/models/wide_resnet101_2-32ee1156.pth',
 }
 
 
-def resnet18(pretrained=False, **kwargs):
-    """Constructs a ResNet-18 model.
-
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
-    model = ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet18']))
-    return model
+class ResNet18(ResNet):
+    def __init__(self, pretrained=False, **kwargs):
+        super(ResNet18, self).__init__(BasicBlock, [2, 2, 2, 2], **kwargs)
+        if pretrained:
+            self.load_state_dict(model_zoo.load_url(model_urls['resnet18']))
 
 
-def resnet34(pretrained=False, **kwargs):
-    """Constructs a ResNet-34 model.
-
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
-    model = ResNet(BasicBlock, [3, 4, 6, 3], **kwargs)
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet34']))
-    return model
+class ResNet34(ResNet):
+    def __init__(self, pretrained=False, **kwargs):
+        super(ResNet34, self).__init__(BasicBlock, [3, 4, 6, 3], **kwargs)
+        if pretrained:
+            self.load_state_dict(model_zoo.load_url(model_urls['resnet34']))
+            print("A")
 
 
-def resnet50(pretrained=False, **kwargs):
-    """Constructs a ResNet-50 model.
-
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
-    model = ResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
-    return model
+class ResNet50(ResNet):
+    def __init__(self, pretrained=False, **kwargs):
+        super(ResNet50, self).__init__(Bottleneck, [3, 4, 6, 3], **kwargs)
+        if pretrained:
+            self.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
 
 
-def resnet101(pretrained=False, **kwargs):
-    """Constructs a ResNet-101 model.
-
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
-    model = ResNet(Bottleneck, [3, 4, 23, 3], **kwargs)
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet101']))
-    return model
+class ResNet101(ResNet):
+    def __init__(self, pretrained=False, **kwargs):
+        super(ResNet101, self).__init__(Bottleneck, [3, 4, 23, 3], **kwargs)
+        if pretrained:
+            self.load_state_dict(model_zoo.load_url(model_urls['resnet101']))
 
 
-def resnet152(pretrained=False, **kwargs):
-    """Constructs a ResNet-152 model.
-
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
-    model = ResNet(Bottleneck, [3, 8, 36, 3], **kwargs)
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet152']))
-    return model
+class ResNet152(ResNet):
+    def __init__(self, pretrained=False, **kwargs):
+        super(ResNet152, self).__init__(Bottleneck, [3, 8, 36, 3], **kwargs)
+        if pretrained:
+            self.load_state_dict(model_zoo.load_url(model_urls['resnet152']))
