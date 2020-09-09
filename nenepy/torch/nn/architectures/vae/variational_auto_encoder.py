@@ -10,6 +10,7 @@ class VariationalAutoEncoder(nn.Module):
 
         self.encoder = encoder
         self.decoder = decoder
+        self.z_dim = encoder.z_dim
 
     def forward(self, x):
         mu, sigma = self.encoder(x)

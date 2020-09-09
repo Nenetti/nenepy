@@ -63,7 +63,12 @@ class WeaklySupervisedSegmentation(AbstractNetworkArchitecture):
 
         # ----- Forward Encoder (Feature Extraction) ----- #
         # ----- Forward Decoder (Convert feature to mask) ----- #
-        feature_maps, masks = self.semantic_segmentation(x, return_features=True)
+        height, width = x.shape[-2:]
+        feature_maps, _ = self.semantic_segmentation(x, return_features=True, output_size=(int(height // 4), int(width // 4)))
+
+        background = torch.ones_like(feature_maps[:, :1])
+        feature_maps = torch.cat([background, feature_maps], dim=1)
+        masks = F.softmax(feature_maps, dim=1)
 
         # ----- Reshaping ([H, W] -> [H * W]) ----- #
         batch_size, n_channels, _, _ = feature_maps.size()

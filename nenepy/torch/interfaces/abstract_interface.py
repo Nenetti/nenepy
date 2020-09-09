@@ -129,15 +129,15 @@ class AbstractInterface(metaclass=ABCMeta):
                 "min": float(np.min(value))
             }
 
-            self.board_writer.add_scalars(namespace=name, graph_name=self.mode.name, scalar_dict=scalar_values, step=epoch)
+            self.board_writer.add_scalars(namespace=f"Loss_{self.mode.name}", graph_name=name, scalar_dict=scalar_values, step=epoch)
 
-    def _output_each_class_loss(self, epoch, each_class_losses, class_names):
-        each_loss_dict = {}
-        for i, loss in enumerate(each_class_losses.tolist()):
-            each_loss_dict[class_names[i]] = loss / len(self.dataloader)
-        self.board_writer.add_scalars(namespace="Class_Loss", graph_name="Validation", scalar_dict=each_loss_dict, step=epoch)
+    # def _output_each_class_loss(self, epoch, each_class_losses, class_names):
+    #     each_loss_dict = {}
+    #     for i, loss in enumerate(each_class_losses.tolist()):
+    #         each_loss_dict[class_names[i]] = loss / len(self.dataloader)
+    #     self.board_writer.add_scalars(namespace="Class_Loss", graph_name="Validation", scalar_dict=each_loss_dict, step=epoch)
 
-    def _output_learning_rate(self, epoch):
+    def _output_learning_rate(self, epoch, graph_name="Learning_Rate"):
         """
 
         Args:
@@ -151,7 +151,7 @@ class AbstractInterface(metaclass=ABCMeta):
         for i, lr in enumerate(self.model.scheduler.get_last_lr()):
             lr_dict[f"Param{i}"] = lr
 
-        self.board_writer.add_scalars(namespace="Learning_Rate", graph_name=self.mode.name, scalar_dict=lr_dict, step=epoch)
+        self.board_writer.add_scalars(namespace=graph_name, graph_name=self.mode.name, scalar_dict=lr_dict, step=epoch)
 
     # ==============================================================================
     #

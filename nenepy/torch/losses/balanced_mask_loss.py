@@ -20,7 +20,7 @@ class BalancedMaskLoss(nn.Module):
         Returns:
             torch.Tensor;
 
-        Shape:
+        Shapes:
             [B, C, H, W], [B, C, H, W], [B, C] -> [B]
 
         """

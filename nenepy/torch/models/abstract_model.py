@@ -147,7 +147,6 @@ class AbstractModel(metaclass=ABCMeta):
             for p in group["params"]:
                 if p.grad is not None:
                     p.grad = None
-
         loss.backward()
         self.optimizer.step()
 

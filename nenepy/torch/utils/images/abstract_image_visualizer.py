@@ -60,7 +60,7 @@ class AbstractImageVisualizer:
         Returns:
             torch.Tensor:
 
-        Shape:
+        Shapes:
             Args -> [3, H, W]
 
         """
@@ -98,7 +98,7 @@ class AbstractImageVisualizer:
         Returns:
             torch.Tensor:
 
-        Shape:
+        Shapes:
             N * [3, H, W] -> [3, H, W]
 
         """
@@ -240,7 +240,7 @@ class AbstractImageVisualizer:
         Returns:
             torch.Tensor:
 
-        Shape:
+        Shapes:
             example: ([N, C, H, W], dim=1) -> [C, H * N, W]
 
         """
@@ -351,7 +351,7 @@ class AbstractImageVisualizer:
         Returns:
             torch.Tensor:
 
-        Shape:
+        Shapes:
             [C, H, W] -> [3, H, W]
 
         """
@@ -368,7 +368,7 @@ class AbstractImageVisualizer:
         Returns:
             torch.Tensor:
 
-        Shape:
+        Shapes:
             [C, H, W] -> [3, H, W]
 
         """
@@ -389,7 +389,7 @@ class AbstractImageVisualizer:
         Returns:
             torch.Tensor:
 
-        Shape:
+        Shapes:
             ([H, W] or [1, H, W]) -> [3, H, W]
 
         """
@@ -411,7 +411,7 @@ class AbstractImageVisualizer:
         Returns:
             torch.Tensor
 
-        Shape:
+        Shapes:
             ([3, H, W], [3, H, W]) -> [3, H, W]
 
         """

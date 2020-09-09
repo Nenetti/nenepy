@@ -34,7 +34,7 @@ class Color:
         Returns:
             torch.Tensor
 
-        Shape:
+        Shapes:
             ([H, W] or [1, H, W]) -> [3, H, W]
 
         """
@@ -58,7 +58,7 @@ class Color:
         Returns:
             torch.Tensor:
 
-        Shape:
+        Shapes:
             [N] -> [N, 3]
 
         """
@@ -79,7 +79,7 @@ class Color:
         Returns:
             torch.Tensor:
 
-        Shape:
+        Shapes:
             ([H, W] or [1, H, W]) -> [3, H, W]
 
         """

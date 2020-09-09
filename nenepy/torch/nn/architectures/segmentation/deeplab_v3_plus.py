@@ -2,7 +2,7 @@ import torch
 
 from nenepy.torch.nn.architectures import AbstractNetworkArchitecture
 from nenepy.torch.nn.architectures.backbones import resnet50
-from nenepy.torch.nn.modules import GlobalCueInjection, StochasticGate, ASPP
+from nenepy.torch.nn.modules import GlobalCueInjection, StochasticGate, ASPP, DynamicUpsample
 from nenepy.torch.nn.modules.concat import Concat
 from torch import nn
 from torch.functional import F
@@ -83,7 +83,7 @@ class DeepLabV3Plus(AbstractNetworkArchitecture):
             nn.Conv2d(256, out_channels, kernel_size=1, stride=1)
         )
 
-        self.upsampling_x4 = nn.Upsample(scale_factor=(4, 4), mode="bilinear", align_corners=True)
+        self.upsampling = DynamicUpsample(scale_factor=(4, 4), mode="bilinear", align_corners=True)
 
         self._add_training_modules(self.deconv)
 
@@ -93,7 +93,7 @@ class DeepLabV3Plus(AbstractNetworkArchitecture):
     #
     # ==============================================================================
 
-    def forward(self, x, return_features=False):
+    def forward(self, x, return_features=False, output_size=None):
         """
 
         Args:
@@ -105,13 +105,16 @@ class DeepLabV3Plus(AbstractNetworkArchitecture):
         """
 
         # ----- Forward Encoder (Feature Extraction) ----- #
-        encoder_x = self._forward_encoder(x)
+        low_feature, encoder_x = self._forward_encoder(x)
 
         # ----- Forward Decoder (Convert feature to mask) ----- #
-        feature_maps = self._forward_decoder(encoder_x)
+        feature_maps = self._forward_decoder(low_feature, encoder_x)
         masks = F.softmax(feature_maps, dim=1)
 
+        masks = self.upsampling(masks, size=output_size)
+
         if return_features:
+            feature_maps = self.upsampling(feature_maps, size=output_size)
             return feature_maps, masks
 
         return masks
@@ -185,21 +188,11 @@ class DeepLabV3Plus(AbstractNetworkArchitecture):
 
         # 2. Atrous Spatial Pyramid Pooling (ASPP) (from deeplabv3)
         aspp_x = self._aspp(high_feature)
-        aspp_x = self.upsampling_x4(aspp_x)
+        aspp_x = self.upsampling(aspp_x)
 
-        # 3. Connect low-level feature to high-level feature
-        #    Concatenate low-level feature with high-level feature
-        skip_x = self._low_level_skip(low_feature)
-        concat_x = self._concat(aspp_x, skip_x)
-        concat_x = self._conv_3x3(concat_x)
+        return low_feature, aspp_x
 
-        # 4. Deep feature context for shallow features
-        gci_x = self._gci(low_feature, concat_x)
-        sg_x = self._stochastic_gate(gci_x, concat_x, p=self._sg_psi)
-
-        return sg_x
-
-    def _forward_decoder(self, x):
+    def _forward_decoder(self, low_feature, x):
         """
         Decoder部分の計算
 
@@ -211,9 +204,16 @@ class DeepLabV3Plus(AbstractNetworkArchitecture):
 
         """
 
-        x_out = self.deconv(x)
+        # 3. Connect low-level feature to high-level feature
+        #    Concatenate low-level feature with high-level feature
+        skip_x = self._low_level_skip(low_feature)
+        concat_x = self._concat(x, skip_x)
+        concat_x = self._conv_3x3(concat_x)
 
-        background = torch.ones_like(x_out[:, :1])
-        feature_maps = torch.cat([background, x_out], dim=1)
+        # 4. Deep feature context for shallow features
+        gci_x = self._gci(low_feature, concat_x)
+        sg_x = self._stochastic_gate(gci_x, concat_x, p=self._sg_psi)
 
-        return feature_maps
+        x_out = self.deconv(sg_x)
+
+        return x_out

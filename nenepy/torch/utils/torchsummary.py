@@ -6,9 +6,6 @@ from time import sleep
 import numpy as np
 import torch
 import torch.nn as nn
-from torchsummary import summary
-
-summary
 
 
 class Block:
@@ -33,9 +30,10 @@ class Block:
     train_length = 0
 
     all_blocks = []
+    ids = set()
 
-    def __init__(self):
-        self.module = None
+    def __init__(self, module):
+        self.module = module
         self.module_in = None
         self.module_out = None
         self.blocks = []
@@ -51,7 +49,13 @@ class Block:
         self.is_trained_bias = False
         self.trained_bias_params = 0
         self.untrained_bias_params = 0
+        self.duplication = False
 
+        i = id(self.module)
+        if i in self.ids:
+            self.duplication = True
+        else:
+            self.ids.add(i)
         self.all_blocks.append(self)
 
     def add_block(self, block):
@@ -81,12 +85,9 @@ class Block:
     @property
     def output_size(self):
         size = 0
-        for size_str in self.output_kwargs.values():
-            s = size_str.size()
-            if self.is_trained:
-                size += s * 2
-            else:
-                size += s
+        if (self.n_params > 0) or (len(self.blocks) == 0):
+            for size_str in self.output_kwargs.values():
+                size += size_str.size()
 
         return size
 
@@ -159,7 +160,7 @@ class Block:
 
     @property
     def input_str_shapes(self):
-        return [f"{size_str.tensors_to_str(self.output_each_max_dims)}" for size_str in self.input_kwargs.values()]
+        return [f"{size_str.tensors_to_str(self.input_each_max_dims)}" for size_str in self.input_kwargs.values()]
 
     @property
     def input_str_coefficients(self):
@@ -236,20 +237,22 @@ class Block:
     # classmethod
     @classmethod
     def get_total_params(cls):
-        return cls.get_trainable_params() + cls.get_untrainable_params()
+        return cls.get_total_trainable_params() + cls.get_total_untrainable_params()
 
     @classmethod
-    def get_trainable_params(cls):
+    def get_total_trainable_params(cls):
         params = 0
         for block in cls.all_blocks:
-            params += block.trained_weight_params + block.trained_bias_params
+            if not block.duplication:
+                params += block.trained_weight_params + block.trained_bias_params
         return params
 
     @classmethod
-    def get_untrainable_params(cls):
+    def get_total_untrainable_params(cls):
         params = 0
         for block in cls.all_blocks:
-            params += block.untrained_weight_params + block.untrained_bias_params
+            if not block.duplication:
+                params += block.untrained_weight_params + block.untrained_bias_params
         return params
 
     @classmethod
@@ -349,7 +352,7 @@ class Block:
     def _get_max_input_shape_length(cls):
         max_length = 0
         for block in cls.all_blocks:
-            length = max([len(size_str.tensors_to_str(cls.input_each_max_dims)) for size_str in block.input_kwargs.values()])
+            length = max([len(s) for s in block.input_str_shapes])
             max_length = max(max_length, length)
 
         return max_length
@@ -377,7 +380,7 @@ class Block:
     def _get_max_output_length(cls):
         max_length = 0
         for block in cls.all_blocks:
-            length = max([len(size_str.tensors_to_str(cls.output_each_max_dims)) for size_str in block.output_kwargs.values()])
+            length = max([len(s) for s in block.output_str_shapes])
             max_length = max(max_length, length)
 
         return max_length
@@ -561,12 +564,16 @@ class Summary:
         Block.calc_length()
 
         self.calc_depth()
+
+        # print(self.roots[0].output_texts)
+        # sys.exit()
+
         self.name_texts()
-        sleep(1000)
+        # sleep(1000)
         # remove these hooks
         for h in self.hooks:
             h.remove()
-        sys.exit()
+        # sys.exit()
 
     def calc_depth(self):
 
@@ -678,6 +685,7 @@ class Summary:
             n_child_blocks = len(root.blocks)
             directory = root.architecture_str
             inputs = root.input_texts
+
             outputs = root.output_texts
             weight_params = [root.weight_param_text]
             bias_params = [root.bias_param_text]
@@ -757,10 +765,10 @@ class Summary:
         print(border_line)
 
         total_params = Block.total_params
-        trainable_param_size = Block.get_trainable_params()
-        untrainable_param_size = Block.get_untrainable_params()
+        trainable_param_size = Block.get_total_trainable_params()
+        untrainable_param_size = Block.get_total_untrainable_params()
         total_input_size = (sum([r.input_size for r in self.roots]) * 4) / (1024 ** 2)
-        total_output_size = (2 * sum([r.output_size for r in Block.all_blocks]) * 4) / (1024 ** 2)
+        total_output_size = (sum([r.output_size for r in Block.all_blocks]) * 4) / (1024 ** 2)
         total_params_size = (Block.total_params * 4) / (1024 ** 2)
         total_size = total_params_size + total_output_size + total_input_size
 
@@ -770,8 +778,6 @@ class Summary:
 
         input_size_title = "Input size (/Batch) (MB)"
         forward_backward_size_title = "Forward/backward pass size (/Batch) (MB)"
-        params_size_title = "Params size (/Batch) (MB)"
-        estimated_total_size_title = "Estimated Size (/Batch) (MB)"
 
         total_input_size_title = "Total Input size (MB)"
         total_forward_backward_size_title = "Total Forward/backward pass size (MB)"
@@ -784,8 +790,6 @@ class Summary:
 
         input_size_text = f"{total_input_size / self.batch_size:.2f}"
         forward_backward_size_text = f"{total_output_size / self.batch_size:.2f}"
-        params_size_text = f"{total_params_size / self.batch_size:.2f}"
-        estimated_total_size_text = f"{total_size / self.batch_size:.2f}"
 
         total_input_size_text = f"{total_input_size:.2f}"
         total_forward_backward_size_text = f"{total_output_size:.2f}"
@@ -799,8 +803,6 @@ class Summary:
             "",
             input_size_title,
             forward_backward_size_title,
-            params_size_title,
-            estimated_total_size_title,
             "",
             total_input_size_title,
             total_forward_backward_size_title,
@@ -815,8 +817,6 @@ class Summary:
             "",
             input_size_text,
             forward_backward_size_text,
-            params_size_text,
-            estimated_total_size_text,
             "",
             total_input_size_text,
             total_forward_backward_size_text,
@@ -854,7 +854,7 @@ class Summary:
         Returns:
 
         """
-        block = Block()
+        block = Block(module)
         if len(self.blocks) == 0:
             self.roots.append(block)
 
@@ -866,7 +866,6 @@ class Summary:
             module_out = [module_out]
 
         block = self.blocks.pop(-1)
-        block.module = module
         input_kwargs = OrderedDict()
         parameter_dict = OrderedDict(inspect.signature(module.forward).parameters.items())
         for i, (key, value) in enumerate(parameter_dict.items()):
