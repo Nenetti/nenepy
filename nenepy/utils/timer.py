@@ -51,3 +51,6 @@ class Timer:
         hours = int(self._elapsed_time // 3600)
 
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+    def __str__(self):
+        return f"{time.time() - self._start_time}"

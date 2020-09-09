@@ -20,12 +20,10 @@ class AbstractInterface(metaclass=ABCMeta):
         Args:
             mode (Mode):
             model (AbstractModel):
-            log_dir (Path):
             logger (Log):
+            save_interval (int):
 
         """
-        self.mode = mode
-
         # ----- Data ----- #
         self.dataset = None
         self.dataloader = None
@@ -38,6 +36,7 @@ class AbstractInterface(metaclass=ABCMeta):
         self.board_writer = TensorBoardWriter(log_dir=Path(logger.log_dir).joinpath(mode.name))
 
         # ----- etc ----- #
+        self.mode = mode
         self.timer = Timer()
         self.save_interval = save_interval
 
