@@ -20,6 +20,8 @@ class ResNet(TorchResNet):
 
         if pretrained_state_dict is not None:
             self.load_state_dict(pretrained_state_dict, strict=True)
+        else:
+            is_train = True
 
         # ----- Custom ----- #
         self._is_train = is_train
