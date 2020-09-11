@@ -8,30 +8,39 @@ class AbstractNetworkArchitecture(nn.Module, metaclass=ABCMeta):
 
     def __init__(self):
         super().__init__()
-
-        self.training_layers = []  # new layers -> higher LR
+        self.training_layers = []
 
     def forward(self, *args, **kwargs):
         raise NotImplementedError()
 
+    def train(self, mode=True):
+        super(AbstractNetworkArchitecture, self).train()
+        for m in self.training_layers:
+            m.requires_grad_(requires_grad=True)
+
+    def eval(self):
+        super(AbstractNetworkArchitecture, self).eval()
+        self.requires_grad_(requires_grad=False)
+
     def _add_training_modules(self, module):
-        """
+        self.training_layers.extend(module.modules())
+        self._initialize_weights(module)
 
-        Args:
-            module (nn.Module):
-
-        Returns:
-
-        """
+    def _initialize_weights(self, module):
         for m in module.modules():
+            if m not in self.training_layers:
+                continue
+
             if isinstance(m, nn.Conv2d):
-                self.training_layers.append(m)
-                torch.nn.init.kaiming_normal_(m.weight)
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
 
             elif isinstance(m, nn.BatchNorm2d):
-                self.training_layers.append(m)
                 if m.weight is not None:
                     m.weight.data.fill_(1)
+                    m.bias.data.zero_()
+
+            elif isinstance(m, nn.Linear):
+                if m.bias is not None:
                     m.bias.data.zero_()
 
     def parameters_dict(self, base_lr, wd):

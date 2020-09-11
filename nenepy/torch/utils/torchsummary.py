@@ -30,7 +30,7 @@ class Block:
     train_length = 0
 
     all_blocks = []
-    ids = set()
+    ids = dict()
 
     def __init__(self, module):
         self.module = module
@@ -51,11 +51,11 @@ class Block:
         self.untrained_bias_params = 0
         self.duplication = False
 
-        i = id(self.module)
-        if i in self.ids:
+        module_id = id(self.module)
+        if module_id in self.ids:
             self.duplication = True
         else:
-            self.ids.add(i)
+            self.ids[module_id] = module
         self.all_blocks.append(self)
 
     def add_block(self, block):
@@ -532,6 +532,7 @@ class Summary:
             device:
         """
         self.model = model.to(device)
+        self.model.train()
         self.batch_size = batch_size
         self.device = device
         self.summary = OrderedDict()
@@ -829,6 +830,12 @@ class Summary:
 
         for title, values in zip(titles, values):
             print(f"{title:>{title_length}}:   {values:>{value_length}}")
+
+        print()
+        counter = Counter(map(lambda x: x.__class__, Block.ids.values()))
+        sort = counter.most_common()
+        for module, count, in sort:
+            print(count, str(module).split("'")[1])
 
     # ==============================================================================
     #

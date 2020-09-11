@@ -12,17 +12,14 @@ class WeaklySupervisedSegmentation(AbstractNetworkArchitecture):
 
     """
 
-    def __init__(self, out_channels,
-                 backbone_pretrained=True, sg_psi=0.3, focal_p=3, focal_lambda=0.01,
-                 pamr_iter=10, pamr_kernel=[1, 2, 4, 8, 12, 24],
-                 pseudo_lower=0.2
-                 ):
+    def __init__(self, in_channels, out_channels, backbone, backbone_pretrained=True,
+                 sg_psi=0.3, focal_p=3, focal_lambda=0.01,
+                 pamr_iter=10, pamr_kernel=[1, 2, 4, 8, 12, 24], pseudo_lower=0.2):
         super(WeaklySupervisedSegmentation, self).__init__()
 
         self.semantic_segmentation = DeepLabV3Plus(
-            out_channels=out_channels,
-            backbone_pretrained=backbone_pretrained,
-            sg_psi=sg_psi
+            in_channels=in_channels, out_channels=out_channels,
+            backbone=backbone, backbone_pretrained=backbone_pretrained, sg_psi=sg_psi
         )
 
         self.pamr = PAMR(
