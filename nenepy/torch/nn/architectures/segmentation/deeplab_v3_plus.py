@@ -17,16 +17,16 @@ class DeepLabV3Plus(AbstractNetworkArchitecture):
     #
     # ==============================================================================
 
-    def __init__(self, in_channels, out_channels, backbone=ResNet50, backbone_pretrained=True, sg_psi=0.3):
+    def __init__(self, in_channels, out_channels, backbone=ResNet50, backbone_pretrained=True, sg_psi=0.3, backbone_kwargs={}):
         super(DeepLabV3Plus, self).__init__()
 
         self._sg_psi = sg_psi
 
-        self._init_encoder(in_channels, backbone, backbone_pretrained)
+        self._init_encoder(in_channels, backbone, backbone_pretrained, backbone_kwargs)
         self._init_decoder(out_channels)
         self.train()
 
-    def _init_encoder(self, in_channels, backbone, backbone_pretrained):
+    def _init_encoder(self, in_channels, backbone, backbone_pretrained, backbone_kwargs):
         """
 
         Returns:
@@ -35,7 +35,7 @@ class DeepLabV3Plus(AbstractNetworkArchitecture):
         if backbone not in backbone_list:
             raise ValueError()
 
-        self._backbone_encoder = backbone(in_channels=in_channels, reduction_rate=16, pretrained=backbone_pretrained, is_feature_extraction=True)
+        self._backbone_encoder = backbone(in_channels=in_channels, reduction_rate=16, pretrained=backbone_pretrained, is_feature_extraction=True, **backbone_kwargs)
 
         self._gci = GlobalCueInjection()
 
