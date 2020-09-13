@@ -1,6 +1,8 @@
 import torch
 from torch import nn
 
+from nenepy.torch.nn.modules.concat import Concat
+
 
 class UNet(nn.Module):
 
@@ -96,10 +98,11 @@ class UNet(nn.Module):
             super(UNet.UpBlock, self).__init__()
             self.up_block = nn.ConvTranspose2d(in_channels=in_channels, out_channels=out_channels, kernel_size=4, stride=2, padding=1)
             self.block = UNet.ConvBlock(in_channels, out_channels)
+            self.concat = Concat(dim=1)
 
         def forward(self, x, y):
             x = self.up_block(x)
-            x = torch.cat((x, y), dim=1)
+            x = self.concat(x, y)
             x = self.block(x)
             return x
 
