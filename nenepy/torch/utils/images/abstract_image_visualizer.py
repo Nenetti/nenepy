@@ -4,19 +4,25 @@ import PIL
 import numpy as np
 import torch
 from PIL import Image, ImageDraw, ImageFont
+from PIL.ImageDraw2 import Font
 
 from nenepy.torch.utils.images import Color
 
 
 class AbstractImageVisualizer:
-    font = ImageFont.truetype("UbuntuMono-R.ttf", 22)
-    font_size = 25
+    default_font_name = "UbuntuMono-R.ttf"
+    default_font = ImageFont.truetype(default_font_name, 22)
+    default_font_size = 25
 
     # ==============================================================================
     #
     #   Private Method
     #
     # ==============================================================================
+
+    @classmethod
+    def resize_font(cls, font_size):
+        return ImageFont.truetype(cls.default_font_name, font_size)
 
     @classmethod
     def _make_information_texts(cls, labels, score, class_names, n_top=5):
@@ -66,9 +72,9 @@ class AbstractImageVisualizer:
         """
         # ----- Font ----- #
         if font is None:
-            font = cls.font
+            font = cls.default_font
         if font_size == -1:
-            font_size = cls.font_size
+            font_size = cls.default_font_size
 
         # ----- Text Size ----- #
         text_width = max([cls._calc_text_size(text, font)[0] for text in texts])
@@ -85,14 +91,14 @@ class AbstractImageVisualizer:
         return torch.from_numpy(label_text_area).permute(dims=(2, 0, 1))
 
     @classmethod
-    def _make_grid_image(cls, image_dict, colors=None, max_n_column=-1, font=None, font_size=-1):
+    def _make_grid_image(cls, image_dict, colors=None, max_n_column=-1, default_font=None, font_size=-1):
         """
 
         Args:
             image_dict (OrderedDict[str, torch.Tensor]):
             colors (tuple or list or np.ndarray)
             max_n_column (int):
-            font (PIL.ImageFont.FreeTypeFont):
+            default_font (PIL.ImageFont.FreeTypeFont):
             font_size (int):
 
         Returns:
@@ -113,10 +119,10 @@ class AbstractImageVisualizer:
             colors = np.array(colors)
 
         # ----- Font ----- #
-        if font is None:
-            font = cls.font
+        if default_font is None:
+            default_font = cls.default_font
         if font_size == -1:
-            font_size = cls.font_size
+            font_size = cls.default_font_size
 
         # ----- Calculate grid row and column ----- #
         n_images = len(image_dict)
@@ -153,6 +159,15 @@ class AbstractImageVisualizer:
             image_name_draw = ImageDraw.Draw(image_name_area)
 
             for k, text in enumerate(row_keys):
+                # text_width = cls._calc_text_size(str(text), default_font)[0]
+                # if text_width > width:
+                #     max_text_length = max([len(str(key)) for key in keys])
+                #     size = ((width * 2) // max_text_length) - 1
+                #     font = cls.resize_font(size)
+                # else:
+                #     font = default_font
+                font = default_font
+
                 cls._draw_frame(
                     image_name_draw, text,
                     sxy=(width * k, 0), exy=(width * (k + 1) - 1, font_size - 1),
@@ -189,7 +204,7 @@ class AbstractImageVisualizer:
         """
         # ----- Font ----- #
         if font is None:
-            font = cls.font
+            font = cls.default_font
 
         sx, sy = sxy
         ex, ey = exy
@@ -244,6 +259,14 @@ class AbstractImageVisualizer:
             example: ([N, C, H, W], dim=1) -> [C, H * N, W]
 
         """
+        if len(images) == 1:
+            return images[0]
+        else:
+            shape = images[0].shape
+            is_same_shapes = [image.shape == shape for image in images[1:]]
+            if False not in is_same_shapes:
+                return torch.cat(images, dim=1)
+
         # ----- Calc Image Shape ----- #
         target_shape = cls._calc_concat_shape(images, dim)
         target_shape = torch.tensor(target_shape)
@@ -270,7 +293,6 @@ class AbstractImageVisualizer:
             # ----- Overwrite Tensor (Copy) ----- #
             image_area.copy_(image)
             target_dim_start_pixel += image_shape[dim]
-
         return out_image
 
     @staticmethod
