@@ -439,15 +439,15 @@ class InputSizeStr:
         self.is_tensor = is_tensor
         self.coefficient = coefficient
 
-    @staticmethod
-    def init(tensor):
+    @classmethod
+    def init(cls, tensor):
         string = ""
         is_tensor = False
         coefficient = ""
 
         if isinstance(tensor, torch.Tensor):
             is_tensor = True
-            string = list(map(str, list(tensor.size())))
+            string = cls.tensor_to_string_size(tensor)
 
         elif isinstance(tensor, (list, tuple)):
             v = tensor[0]
@@ -462,14 +462,14 @@ class InputSizeStr:
                 sort = counter.most_common()
                 if len(sort) == 1:
                     is_tensor = True
-                    string = list(map(str, list(v.size())))
+                    string = cls.tensor_to_string_size(v)
                     coefficient = f"{len(tensor)}"
 
                 else:
                     out = []
                     for i, (value, n) in enumerate(sort):
                         is_tensor = True
-                        string = list(map(str, list(shapes_dict[value].size())))
+                        string = cls.tensor_to_string_size(shapes_dict[value])
                         coefficient = f"{n}"
                         size_str = InputSizeStr(tensor, string, is_tensor, coefficient)
                         out.append(size_str)
@@ -486,6 +486,13 @@ class InputSizeStr:
             string = "Unknown"
 
         return InputSizeStr(tensor, string, is_tensor, coefficient)
+
+    @staticmethod
+    def tensor_to_string_size(tensor):
+        size = list(tensor.size())
+        size[0] = -1
+        size = list(map(str, size))
+        return size
 
     def tensors_to_str(self, each_max_dims):
         if self.is_tensor:
@@ -681,7 +688,7 @@ class Summary:
         print(param_detail_line)
         print(border_line)
 
-        def recursive(root, append="", is_last=False, before_is_boundary=False, before_is_space=True):
+        def recursive(root, append="", is_last=False, before_is_boundary=False, before_is_space=True, child_first=False):
 
             n_child_blocks = len(root.blocks)
             directory = root.architecture_str
@@ -707,7 +714,7 @@ class Summary:
             is_boundaries += [False] * (max_length - len(is_boundaries))
 
             need_before_boundary = ((max_length > 1) and (not before_is_boundary)) or root.depth == 0
-            need_before_space = (n_child_blocks > 0) and (not before_is_space and not before_is_boundary)
+            need_before_space = (n_child_blocks > 0 or child_first) and (not before_is_space and not before_is_boundary)
             need_boundary = max_length > 1 or root.depth == 0
             need_space = is_last and len(root.blocks) == 0
 
@@ -739,7 +746,14 @@ class Summary:
                 before_is_space = True
 
             for i, block in enumerate(root.blocks):
-                if i + 1 == len(root.blocks):
+                if i == 0:
+                    if is_last:
+                        before_is_boundary, before_is_space = recursive(block, new_append, before_is_boundary=before_is_boundary,
+                                                                        before_is_space=before_is_space, child_first=True)
+                    else:
+                        before_is_boundary, before_is_space = recursive(block, new_append, before_is_boundary=before_is_boundary,
+                                                                        before_is_space=before_is_space, child_first=True)
+                elif i + 1 == len(root.blocks):
                     if is_last:
                         before_is_boundary, before_is_space = recursive(block, new_append, is_last=True, before_is_boundary=before_is_boundary,
                                                                         before_is_space=before_is_space)

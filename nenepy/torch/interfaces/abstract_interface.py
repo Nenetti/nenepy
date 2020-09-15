@@ -6,7 +6,6 @@ from pathlib import Path
 import numpy as np
 
 from nenepy.torch.interfaces import Mode
-from nenepy.torch.models import AbstractModel
 from nenepy.torch.utils.tensorboard import TensorBoardWriter
 from nenepy.utils import Timer
 from nenepy.utils.dictionary import ListDict
@@ -19,7 +18,7 @@ class AbstractInterface(metaclass=ABCMeta):
 
         Args:
             mode (Mode):
-            model (AbstractModel):
+            model (nenepy.torch.models.AbstractModel):
             logger (Log):
             save_interval (int):
 
@@ -78,6 +77,9 @@ class AbstractInterface(metaclass=ABCMeta):
     def register_forward_hook(self, hook):
         n_args = len(list(signature(hook).parameters))
         self._forward_hooks[id(hook)] = (n_args, hook)
+
+    def load_log(self):
+        self.epoch = self.logger[self.log_epoch_key]
 
     # ==============================================================================
     #

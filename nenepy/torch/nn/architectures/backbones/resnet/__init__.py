@@ -1,6 +1,7 @@
 import torch.utils.model_zoo as model_zoo
 from torchvision.models.resnet import BasicBlock, Bottleneck
 
+from .decoder_resnet import DecoderResNet, BackwardBottleneck, BackwardBasicBlock
 from .resnet import ResNet
 
 model_urls = {
@@ -76,6 +77,138 @@ class WideResNet101_2(ResNet):
         super(WideResNet101_2, self).__init__(Bottleneck, [3, 4, 23, 3], **kwargs)
 
 
+class DecoderResNet18(DecoderResNet):
+    """
+    Input Channel = 512
+
+    Shapes:
+        ReductionRate=16: [-1, 512, W, H] -> [-1, C, 16W, 16H]
+        ReductionRate=32: [-1, 512, W, H] -> [-1, C, 32W, 32H]
+
+    """
+
+    def __init__(self, **kwargs):
+        super(DecoderResNet18, self).__init__(BackwardBasicBlock, [2, 2, 2, 2], **kwargs)
+
+
+class DecoderResNet34(DecoderResNet):
+    """
+    Input Channel = 512
+
+    Shapes:
+        ReductionRate=16: [-1, 512, W, H] -> [-1, C, 16W, 16H]
+        ReductionRate=32: [-1, 512, W, H] -> [-1, C, 32W, 32H]
+
+    """
+
+    def __init__(self, **kwargs):
+        super(DecoderResNet34, self).__init__(BackwardBasicBlock, [3, 4, 6, 3], **kwargs)
+
+
+class DecoderResNet50(DecoderResNet):
+    """
+    Input Channel = 2048
+
+    Shapes:
+        ReductionRate=16: [-1, 2048, W, H] -> [-1, C, 16W, 16H]
+        ReductionRate=32: [-1, 2048, W, H] -> [-1, C, 32W, 32H]
+
+    """
+
+    def __init__(self, **kwargs):
+        super(DecoderResNet50, self).__init__(BackwardBottleneck, [3, 4, 6, 3], **kwargs)
+
+
+class DecoderResNet101(DecoderResNet):
+    """
+    Input Channel = 2048
+
+    Shapes:
+        ReductionRate=16: [-1, 2048, W, H] -> [-1, C, 16W, 16H]
+        ReductionRate=32: [-1, 2048, W, H] -> [-1, C, 32W, 32H]
+
+    """
+
+    def __init__(self, **kwargs):
+        super(DecoderResNet101, self).__init__(BackwardBottleneck, [3, 4, 23, 3], **kwargs)
+
+
+class DecoderResNet152(DecoderResNet):
+    """
+    Input Channel = 2048
+
+    Shapes:
+        ReductionRate=16: [-1, 2048, W, H] -> [-1, C, 16W, 16H]
+        ReductionRate=32: [-1, 2048, W, H] -> [-1, C, 32W, 32H]
+
+    """
+
+    def __init__(self, **kwargs):
+        super(DecoderResNet152, self).__init__(BackwardBottleneck, [3, 8, 36, 3], **kwargs)
+
+
+class DecoderResNeXt50_32x4d(DecoderResNet):
+    """
+    Input Channel = 2048
+
+    Shapes:
+        ReductionRate=16: [-1, 2048, W, H] -> [-1, C, 16W, 16H]
+        ReductionRate=32: [-1, 2048, W, H] -> [-1, C, 32W, 32H]
+
+    """
+
+    def __init__(self, **kwargs):
+        kwargs['groups'] = 32
+        kwargs['width_per_group'] = 4
+        super(DecoderResNeXt50_32x4d, self).__init__(BackwardBottleneck, [3, 4, 6, 3], **kwargs)
+
+
+class DecoderResNeXt101_32x8d(DecoderResNet):
+    """
+    Input Channel = 2048
+
+    Shapes:
+        ReductionRate=16: [-1, 2048, W, H] -> [-1, C, 16W, 16H]
+        ReductionRate=32: [-1, 2048, W, H] -> [-1, C, 32W, 32H]
+
+    """
+
+    def __init__(self, **kwargs):
+        kwargs['groups'] = 32
+        kwargs['width_per_group'] = 8
+        super(DecoderResNeXt101_32x8d, self).__init__(BackwardBottleneck, [3, 4, 23, 3], **kwargs)
+
+
+class DecoderWideResNet50_2(DecoderResNet):
+    """
+    Input Channel = 2048
+
+    Shapes:
+        ReductionRate=16: [-1, 2048, W, H] -> [-1, C, 16W, 16H]
+        ReductionRate=32: [-1, 2048, W, H] -> [-1, C, 32W, 32H]
+
+    """
+
+    def __init__(self, **kwargs):
+        kwargs['width_per_group'] = 64 * 2
+        super(DecoderWideResNet50_2, self).__init__(BackwardBottleneck, [3, 4, 6, 3], **kwargs)
+
+
+class DecoderWideResNet101_2(DecoderResNet):
+    """
+    Input Channel = 2048
+
+    Shapes:
+        ReductionRate=16: [-1, 2048, W, H] -> [-1, C, 16W, 16H]
+        ReductionRate=32: [-1, 2048, W, H] -> [-1, C, 32W, 32H]
+
+    """
+
+    def __init__(self, **kwargs):
+        kwargs['width_per_group'] = 64 * 2
+        super(DecoderWideResNet101_2, self).__init__(BackwardBottleneck, [3, 4, 23, 3], **kwargs)
+
+
 __all__ = [
     "ResNet18",
     "ResNet34",
@@ -86,4 +219,13 @@ __all__ = [
     "ResNeXt101_32x8d",
     "WideResNet50_2",
     "WideResNet101_2",
+    "DecoderResNet18",
+    "DecoderResNet34",
+    "DecoderResNet50",
+    "DecoderResNet101",
+    "DecoderResNet152",
+    "DecoderResNeXt50_32x4d",
+    "DecoderResNeXt101_32x8d",
+    "DecoderWideResNet50_2",
+    "DecoderWideResNet101_2",
 ]
