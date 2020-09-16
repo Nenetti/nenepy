@@ -1,20 +1,23 @@
 from torch.utils.data import DataLoader as TorchDataLoader, Dataset
-from torch.utils.data import RandomSampler, SequentialSampler
+from torch.utils.data import SequentialSampler
 from tqdm import tqdm
 
 from nenepy.torch.interfaces import Mode
 from nenepy.torch.utils.data import DesignatedIterativeBatchSampler
+from nenepy.torch.utils.data.IterativeRandomSampler import IterativeRandomSampler
 
 
 class DataLoader(TorchDataLoader):
 
     def __init__(self,
                  dataset,
-                 mode,
                  batch_size,
                  num_workers=0,
                  pin_memory=True,
                  break_iteration=-1,
+                 shuffle=False,
+                 shuffle_iteration=0,
+                 drop_last=False,
                  **kwargs
                  ):
         """
@@ -28,17 +31,16 @@ class DataLoader(TorchDataLoader):
             break_iteration (int):
 
         """
-        shuffle, drop_last = (True, True)
-
-        if mode is Mode.VALIDATE:
-            shuffle, drop_last = (False, False)
+        n_data = len(dataset)
+        if (n_data % batch_size == 1) and (not drop_last):
+            raise ValueError()
 
         if break_iteration == -1:
             kwargs.update({"batch_size": batch_size, "shuffle": shuffle, "drop_last": drop_last})
 
         else:
             if shuffle:
-                sampler = RandomSampler(dataset)
+                sampler = IterativeRandomSampler(dataset, shuffle_iteration=shuffle_iteration)
             else:
                 sampler = SequentialSampler(dataset)
 

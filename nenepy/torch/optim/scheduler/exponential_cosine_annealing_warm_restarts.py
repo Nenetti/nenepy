@@ -42,10 +42,12 @@ class ExponentialCosineAnnealingWarmRestarts(CosineAnnealingWarmRestarts):
 
     def _exponential(self, base_lr):
         c = self.gamma ** self.last_epoch
-        if base_lr * c > self.exponential_min_limit:
+        limit = self.exponential_min_limit * base_lr
+        if base_lr * c > limit:
             return base_lr * c
 
-        return self.exponential_min_limit
+        return limit
 
     def _cosine_annealing_warm_restart(self, lr):
-        return self.eta_min + (lr - self.eta_min) * (1 + math.cos(math.pi * self.T_cur / self.T_i)) / 2
+        eta_min = self.eta_min * lr
+        return eta_min + (lr - eta_min) * (1 + math.cos(math.pi * self.T_cur / self.T_i)) / 2

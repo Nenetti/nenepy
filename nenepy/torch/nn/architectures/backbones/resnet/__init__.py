@@ -1,8 +1,7 @@
 import torch.utils.model_zoo as model_zoo
-from torchvision.models.resnet import BasicBlock, Bottleneck
 
 from .decoder_resnet import DecoderResNet, BackwardBottleneck, BackwardBasicBlock
-from .resnet import ResNet
+from .resnet import ResNet, BasicBlock, Bottleneck
 
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',

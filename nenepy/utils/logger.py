@@ -7,11 +7,11 @@ import yaml
 from nenepy.utils.dictionary import AttrDict
 
 
-class Log(AttrDict):
+class Logger(AttrDict):
     """
 
     Examples:
-        >>> log = Log(log_dir="./logs", is_load=False)
+        >>> log = Logger(log_dir="./logs", is_load=False)
         >>> log.A = 1
         >>> log["B"] = 2
         >>> log.save()
@@ -26,7 +26,7 @@ class Log(AttrDict):
             is_load (bool):
 
         """
-        super(Log, self).__init__()
+        super(Logger, self).__init__()
 
         # if log_dir.exists() and not is_load:
         #     shutil.rmtree(log_dir)

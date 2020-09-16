@@ -3,8 +3,32 @@ import pprint
 
 import torch
 from torch import nn
-from torchvision.models.resnet import Bottleneck, BasicBlock
-from torchvision.models.resnet import ResNet as TorchResNet
+from torchvision.models.resnet import ResNet as TorchResNet, conv1x1
+from torchvision.models.resnet import BasicBlock as TorchBasicBlock
+from torchvision.models.resnet import Bottleneck as TorchBottleneck
+
+
+class BasicBlock(TorchBasicBlock):
+
+    def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1, base_width=64, dilation=1, norm_layer=None,
+                 activation_layer=None, activation_kwargs={}):
+        super(BasicBlock, self).__init__(inplanes, planes, stride, downsample, groups, base_width, dilation, norm_layer)
+        if activation_layer is not None:
+            self.relu = activation_layer(**activation_kwargs)
+
+
+class Bottleneck(TorchBottleneck):
+    # Bottleneck in torchvision places the stride for downsampling at 3x3 convolution(self.conv2)
+    # while original implementation places the stride at the first 1x1 convolution(self.conv1)
+    # according to "Deep residual learning for image recognition"https://arxiv.org/abs/1512.03385.
+    # This variant is also known as ResNet V1.5 and improves accuracy according to
+    # https://ngc.nvidia.com/catalog/model-scripts/nvidia:resnet_50_v1_5_for_pytorch.
+
+    def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1, base_width=64, dilation=1, norm_layer=None,
+                 activation_layer=None, activation_kwargs={}):
+        super(Bottleneck, self).__init__(inplanes, planes, stride, downsample, groups, base_width, dilation, norm_layer)
+        if activation_layer is not None:
+            self.relu = activation_layer(**activation_kwargs)
 
 
 class ResNet(TorchResNet):
@@ -44,17 +68,27 @@ class ResNet(TorchResNet):
 
     def _default_initialize(self, block, layers, num_classes=1000, zero_init_residual=False,
                             groups=1, width_per_group=64, replace_stride_with_dilation=None,
-                            norm_layer=None, reduction_rate=32):
+                            norm_layer=None, reduction_rate=32, activation_layer=None, activation_kwargs={}):
 
-        if reduction_rate == 32:
-            layer4_stride = 2
-        elif reduction_rate == 16:
-            layer4_stride = 1
-        else:
-            raise ValueError()
+        layer_strides = [1, 2, 2, 2]
+        if reduction_rate < 32:
+            layer_strides[3] = 1
+        if reduction_rate < 16:
+            layer_strides[2] = 1
+        if reduction_rate < 8:
+            layer_strides[1] = 1
+
+        # if reduction_rate == 32:
+        #     self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        # elif reduction_rate == 16:
+        #     self.maxpool = nn.MaxPool2d(kernel_size=1, stride=1)
+        # else:
+        #     raise ValueError()
 
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
+        if activation_layer is None:
+            activation_layer = nn.ReLU
         self._norm_layer = norm_layer
 
         self.inplanes = 64
@@ -71,15 +105,16 @@ class ResNet(TorchResNet):
         self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3,
                                bias=False)
         self.bn1 = norm_layer(self.inplanes)
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = activation_layer(**activation_kwargs)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, layers[0])
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=2,
-                                       dilate=replace_stride_with_dilation[0])
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=2,
-                                       dilate=replace_stride_with_dilation[1])
-        self.layer4 = self._make_layer(block, 512, layers[3], stride=layer4_stride,
-                                       dilate=replace_stride_with_dilation[2])
+        self.layer1 = self._make_layer(block, 64, layers[0], stride=layer_strides[0],
+                                       activation_layer=activation_layer, activation_kwargs=activation_kwargs)
+        self.layer2 = self._make_layer(block, 128, layers[1], stride=layer_strides[1], dilate=replace_stride_with_dilation[0],
+                                       activation_layer=activation_layer, activation_kwargs=activation_kwargs)
+        self.layer3 = self._make_layer(block, 256, layers[2], stride=layer_strides[2], dilate=replace_stride_with_dilation[1],
+                                       activation_layer=activation_layer, activation_kwargs=activation_kwargs)
+        self.layer4 = self._make_layer(block, 512, layers[3], stride=layer_strides[3], dilate=replace_stride_with_dilation[2],
+                                       activation_layer=activation_layer, activation_kwargs=activation_kwargs)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(512 * block.expansion, num_classes)
 
@@ -99,6 +134,32 @@ class ResNet(TorchResNet):
                     nn.init.constant_(m.bn3.weight, 0)
                 elif isinstance(m, BasicBlock):
                     nn.init.constant_(m.bn2.weight, 0)
+
+    def _make_layer(self, block, planes, blocks, stride=1, dilate=False, activation_layer=None, activation_kwargs={}):
+        norm_layer = self._norm_layer
+        downsample = None
+        previous_dilation = self.dilation
+        if dilate:
+            self.dilation *= stride
+            stride = 1
+        if stride != 1 or self.inplanes != planes * block.expansion:
+            downsample = nn.Sequential(
+                conv1x1(self.inplanes, planes * block.expansion, stride),
+                norm_layer(planes * block.expansion),
+            )
+
+        layers = []
+        layers.append(block(self.inplanes, planes, stride, downsample, self.groups,
+                            self.base_width, previous_dilation, norm_layer,
+                            activation_layer=activation_layer, activation_kwargs=activation_kwargs))
+        self.inplanes = planes * block.expansion
+        for _ in range(1, blocks):
+            layers.append(block(self.inplanes, planes, groups=self.groups,
+                                base_width=self.base_width, dilation=self.dilation,
+                                norm_layer=norm_layer,
+                                activation_layer=activation_layer, activation_kwargs=activation_kwargs))
+
+        return nn.Sequential(*layers)
 
     # ==============================================================================
     #

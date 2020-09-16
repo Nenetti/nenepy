@@ -17,17 +17,19 @@ class BackwardBasicBlock(nn.Module):
     expansion = 1
 
     def __init__(self, in_channels, out_channels, base_channels=64, kernel_size=3, stride=1, downsample=None, groups=1, base_width=64, dilation=1,
-                 norm_layer=None):
+                 norm_layer=None, activation_layer=None, activation_kwargs={}):
         super(BackwardBasicBlock, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
+        if activation_layer is None:
+            activation_layer = nn.ReLU
         if groups != 1 or base_width != 64:
             raise ValueError('BasicBlock only supports groups=1 and base_width=64')
         if dilation > 1:
             raise NotImplementedError("Dilation > 1 not supported in BasicBlock")
         self.conv1 = deconv3x3(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride)
         self.bn1 = norm_layer(out_channels)
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = activation_layer(**activation_kwargs)
         self.conv2 = deconv3x3(in_channels=out_channels, out_channels=out_channels)
         self.bn2 = norm_layer(out_channels)
         self.downsample = downsample
@@ -55,10 +57,12 @@ class BackwardBottleneck(nn.Module):
     expansion = 4
 
     def __init__(self, in_channels, out_channels, base_channels, kernel_size=3, stride=1, downsample=None, groups=1,
-                 base_width=64, dilation=1, norm_layer=None):
+                 base_width=64, dilation=1, norm_layer=None, activation_layer=None, activation_kwargs={}):
         super(BackwardBottleneck, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
+        if activation_layer is None:
+            activation_layer = nn.ReLU
         width = int(base_channels * (base_width / 64.)) * groups
 
         self.conv1 = deconv1x1(in_channels, width)
@@ -67,7 +71,7 @@ class BackwardBottleneck(nn.Module):
         self.bn2 = norm_layer(width)
         self.conv3 = deconv1x1(width, out_channels)
         self.bn3 = norm_layer(out_channels)
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = activation_layer(**activation_kwargs)
         self.downsample = downsample
 
     def forward(self, x):
@@ -120,7 +124,7 @@ class DecoderResNet(TorchResNet):
 
     def _default_initialize(self, block, layers, num_classes=1000, zero_init_residual=False,
                             groups=1, width_per_group=64, replace_stride_with_dilation=None,
-                            norm_layer=None, reduction_rate=32, out_channels=3):
+                            norm_layer=None, reduction_rate=32, out_channels=3, activation_layer=None, activation_kwargs={}):
 
         if reduction_rate == 32:
             layer4_stride = 2
@@ -131,6 +135,8 @@ class DecoderResNet(TorchResNet):
 
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
+        if activation_layer is None:
+            activation_layer = nn.ReLU
         self._norm_layer = norm_layer
 
         self.dilation = 1
@@ -145,13 +151,17 @@ class DecoderResNet(TorchResNet):
         self.base_width = width_per_group
         self.conv1 = nn.ConvTranspose2d(64, out_channels, kernel_size=8, stride=2, padding=3, bias=False)
         self.bn1 = norm_layer(out_channels)
-        self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.Upsample(scale_factor=(2, 2), mode="nearest")
+        self.relu = activation_layer(**activation_kwargs)
+        self.maxpool = nn.Upsample(scale_factor=(2, 2), mode="bilinear", align_corners=True)
 
-        self.layer4 = self._make_layer(block, 512, layers[3], stride=layer4_stride, dilate=replace_stride_with_dilation[2])
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=2, dilate=replace_stride_with_dilation[1])
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=2, dilate=replace_stride_with_dilation[0])
-        self.layer1 = self._make_layer(block, 64, layers[0], out_channels=64)
+        self.layer4 = self._make_layer(block, 512, layers[3], stride=layer4_stride, dilate=replace_stride_with_dilation[2],
+                                       activation_layer=activation_layer, activation_kwargs=activation_kwargs)
+        self.layer3 = self._make_layer(block, 256, layers[2], stride=2, dilate=replace_stride_with_dilation[1],
+                                       activation_layer=activation_layer, activation_kwargs=activation_kwargs)
+        self.layer2 = self._make_layer(block, 128, layers[1], stride=2, dilate=replace_stride_with_dilation[0],
+                                       activation_layer=activation_layer, activation_kwargs=activation_kwargs)
+        self.layer1 = self._make_layer(block, 64, layers[0], out_channels=64,
+                                       activation_layer=activation_layer, activation_kwargs=activation_kwargs)
         self._post_processing = nn.Sigmoid()
 
         for m in self.modules():
@@ -171,7 +181,7 @@ class DecoderResNet(TorchResNet):
                 elif isinstance(m, BasicBlock):
                     nn.init.constant_(m.bn2.weight, 0)
 
-    def _make_layer(self, block, base_channels, n_blocks, stride=1, dilate=False, out_channels=None):
+    def _make_layer(self, block, base_channels, n_blocks, stride=1, dilate=False, out_channels=None, activation_layer=None, activation_kwargs={}):
         norm_layer = self._norm_layer
         downsample = None
         previous_dilation = self.dilation
@@ -197,14 +207,16 @@ class DecoderResNet(TorchResNet):
             layers.append(
                 block(
                     in_channels=in_channels, out_channels=in_channels, base_channels=base_channels, kernel_size=3,
-                    groups=self.groups, base_width=self.base_width, dilation=self.dilation, norm_layer=norm_layer
+                    groups=self.groups, base_width=self.base_width, dilation=self.dilation, norm_layer=norm_layer,
+                    activation_layer=activation_layer, activation_kwargs=activation_kwargs
                 )
             )
 
         layers.append(
             block(
                 in_channels=in_channels, out_channels=out_channels, base_channels=base_channels, kernel_size=kernel_size, stride=stride,
-                downsample=downsample, groups=self.groups, base_width=self.base_width, dilation=previous_dilation, norm_layer=norm_layer
+                downsample=downsample, groups=self.groups, base_width=self.base_width, dilation=previous_dilation, norm_layer=norm_layer,
+                activation_layer=activation_layer, activation_kwargs=activation_kwargs
             )
         )
 
@@ -224,7 +236,7 @@ class DecoderResNet(TorchResNet):
         x1 = self.layer3(x0)
         x2 = self.layer2(x1)
         x3 = self.layer1(x2)
-
+        return x3
         x4 = self.maxpool(x3)
         x4 = self.conv1(x4)
 

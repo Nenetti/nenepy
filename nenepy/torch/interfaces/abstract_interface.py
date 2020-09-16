@@ -7,7 +7,7 @@ import numpy as np
 
 from nenepy.torch.interfaces import Mode
 from nenepy.torch.utils.tensorboard import TensorBoardWriter
-from nenepy.utils import Timer
+from nenepy.utils import Timer, Logger
 from nenepy.utils.dictionary import ListDict
 
 
@@ -19,7 +19,7 @@ class AbstractInterface(metaclass=ABCMeta):
         Args:
             mode (Mode):
             model (nenepy.torch.models.AbstractModel):
-            logger (Log):
+            logger (Logger):
             save_interval (int):
 
         """
@@ -145,12 +145,16 @@ class AbstractInterface(metaclass=ABCMeta):
             epoch (int):
 
         """
-        if self.model.scheduler is None:
+        if self.model.scheduler is None and self.model.optimizer is None:
             return
 
         lr_dict = {}
-        for i, lr in enumerate(self.model.scheduler.get_last_lr()):
-            lr_dict[f"Param{i}"] = lr
+        if self.model.scheduler is not None:
+            for i, lr in enumerate(self.model.scheduler.get_last_lr()):
+                lr_dict[f"Param{i}"] = lr
+        else:
+            for i, group in enumerate(self.model.optimizer.param_groups):
+                lr_dict[f"Param{i}"] = group["lr"]
 
         self.board_writer.add_scalars(namespace=graph_name, graph_name=self.mode.name, scalar_dict=lr_dict, step=epoch)
 

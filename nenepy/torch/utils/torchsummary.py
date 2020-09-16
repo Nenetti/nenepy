@@ -746,7 +746,7 @@ class Summary:
                 before_is_space = True
 
             for i, block in enumerate(root.blocks):
-                if i == 0:
+                if i == 0 and i + 1 != len(root.blocks):
                     if is_last:
                         before_is_boundary, before_is_space = recursive(block, new_append, before_is_boundary=before_is_boundary,
                                                                         before_is_space=before_is_space, child_first=True)
