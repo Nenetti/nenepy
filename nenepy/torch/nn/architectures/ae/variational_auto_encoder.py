@@ -25,10 +25,11 @@ class VariationalAutoEncoder(nn.Module):
     def z_dim(self):
         return self._z_dim
 
-    def forward(self, x, n_sample=0):
+    def forward(self, x, n_samples=0):
         """
         Args:
             x (torch.Tensor):
+            n_samples (int):
 
         Returns:
             torch.Tensor:
@@ -46,17 +47,17 @@ class VariationalAutoEncoder(nn.Module):
 
         """
         mu, sigma = self._encoder(x)
-        z = self.sampling(mu, sigma, n_sample)
+        z = self.sampling(mu, sigma, n_samples)
         decoder_out = self._decoder(z)
 
         return mu, sigma, z, decoder_out
 
-    def sampling(self, mu, sigma, n_sample):
+    def sampling(self, mu, sigma, n_samples):
         if self.training:
-            if n_sample == 0:
+            if n_samples == 0:
                 return Normal(mu, sigma).rsample()
             else:
-                return Normal(mu, sigma).rsample(torch.Size([n_sample])).mean(dim=0)
+                return Normal(mu, sigma).rsample(torch.Size([n_samples])).mean(dim=0)
         else:
             return mu
 
