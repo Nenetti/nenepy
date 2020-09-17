@@ -51,9 +51,11 @@ class VariationalAutoEncoder(nn.Module):
 
         return mu, sigma, z, decoder_out
 
-    @staticmethod
-    def sampling(mu, sigma):
-        return Normal(mu, sigma).rsample()
+    def sampling(self, mu, sigma):
+        if self.training:
+            return Normal(mu, sigma).rsample()
+        else:
+            return mu
 
 
 class Loss(nn.Module):

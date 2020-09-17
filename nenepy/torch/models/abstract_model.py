@@ -142,13 +142,16 @@ class AbstractModel(metaclass=ABCMeta):
     #
     # ==============================================================================
 
-    def _backward(self, loss):
-        for group in self.optimizer.param_groups:
+    def _backward(self, loss, optimizer=None):
+        if optimizer is None:
+            optimizer = self.optimizer
+
+        for group in optimizer.param_groups:
             for p in group["params"]:
                 if p.grad is not None:
                     p.grad = None
         loss.backward()
-        self.optimizer.step()
+        optimizer.step()
 
     def _to_device(self, model, model_in):
 
