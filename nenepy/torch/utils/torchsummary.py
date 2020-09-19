@@ -85,7 +85,7 @@ class Block:
     @property
     def output_size(self):
         size = 0
-        if (self.n_params > 0) or (len(self.blocks) == 0):
+        if (self.n_params > 0) and (len(self.blocks) == 0):
             for size_str in self.output_kwargs.values():
                 size += size_str.size()
 
@@ -530,7 +530,7 @@ class InputSizeStr:
 
 class Summary:
 
-    def __init__(self, model, batch_size, device="cuda"):
+    def __init__(self, model, batch_size, device="cuda", sleep_time=0):
         """
 
         Args:
@@ -552,6 +552,7 @@ class Summary:
         self.now_block = None
         self.n_blocks = 0
         self.ordered_blocks = []
+        self.sleep_time = sleep_time
 
     def __call__(self, input_size, *args, **kwargs):
         # multiple inputs to the network
@@ -577,7 +578,7 @@ class Summary:
         # sys.exit()
 
         self.name_texts()
-        # sleep(1000)
+        sleep(self.sleep_time)
         # remove these hooks
         for h in self.hooks:
             h.remove()
@@ -783,7 +784,7 @@ class Summary:
         trainable_param_size = Block.get_total_trainable_params()
         untrainable_param_size = Block.get_total_untrainable_params()
         total_input_size = (sum([r.input_size for r in self.roots]) * 4) / (1024 ** 2)
-        total_output_size = (sum([r.output_size for r in Block.all_blocks]) * 4) / (1024 ** 2)
+        total_output_size = (sum([r.output_size for r in Block.all_blocks]) * 4 * 2) / (1024 ** 2)
         total_params_size = (Block.total_params * 4) / (1024 ** 2)
         total_size = total_params_size + total_output_size + total_input_size
 
