@@ -26,11 +26,11 @@ class GumbelSoftmax(nn.Module):
             dim = self._dim
             n_dims = logits.dim()
 
-            dims1 = [*range(0, dim), *range(dim + 1, n_dims), dim]
-            dims2 = [*range(0, dim), (n_dims - 1), *range(dim, (n_dims - 1))]
+            dims = [*range(0, dim), *range(dim + 1, n_dims), dim]
+            reconst_dims = [*range(0, dim), (n_dims - 1), *range(dim, (n_dims - 1))]
 
-            probs = logits.contiguous().permute(dims=dims1)
+            probs = logits.contiguous().permute(dims=dims)
             sample = RelaxedOneHotCategorical(temperature=self._tau, probs=probs).rsample()
-            return sample.contiguous().permute(dims2).contiguous()
+            return sample.contiguous().permute(reconst_dims).contiguous()
         else:
-            return F.gumbel_softmax(logits, tau=self._tau, hard=self._hard, dim=self._dim)
+            return F.gumbel_softmax(torch.log(logits + self._eps), tau=self._tau, hard=self._hard, dim=self._dim)
