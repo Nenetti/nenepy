@@ -1,4 +1,6 @@
+import torch
 from torch import nn
+from torch.distributions import RelaxedOneHotCategorical
 from torch.functional import F
 
 
@@ -12,4 +14,23 @@ class GumbelSoftmax(nn.Module):
         self._dim = dim
 
     def forward(self, logits):
-        return F.gumbel_softmax(logits, tau=self._tau, hard=self._hard, dim=self._dim)
+        """
+
+        Args:
+            logits (torch.Tensor):
+
+        Returns:
+
+        """
+        if self._hard:
+            dim = self._dim
+            n_dims = logits.dim()
+
+            dims1 = [*range(0, dim), *range(dim + 1, n_dims), dim]
+            dims2 = [*range(0, dim), (n_dims - 1), *range(dim, (n_dims - 1))]
+
+            probs = logits.contiguous().permute(dims=dims1)
+            sample = RelaxedOneHotCategorical(temperature=self._tau, probs=probs).rsample()
+            return sample.contiguous().permute(dims2).contiguous()
+        else:
+            return F.gumbel_softmax(logits, tau=self._tau, hard=self._hard, dim=self._dim)
