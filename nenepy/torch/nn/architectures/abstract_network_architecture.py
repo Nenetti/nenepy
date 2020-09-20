@@ -13,15 +13,6 @@ class AbstractNetworkArchitecture(nn.Module, metaclass=ABCMeta):
     def forward(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def train(self, mode=True):
-        super(AbstractNetworkArchitecture, self).train()
-        for m in self.training_layers:
-            m.requires_grad_(requires_grad=True)
-
-    def eval(self):
-        super(AbstractNetworkArchitecture, self).eval()
-        self.requires_grad_(requires_grad=False)
-
     def _add_training_modules(self, module):
         self.training_layers.extend(module.modules())
         self._initialize_weights(module)
