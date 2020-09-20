@@ -194,15 +194,14 @@ class ResNet(TorchResNet):
         return x5
 
     def train(self, mode=True):
-        super(ResNet, self).train()
-        if self._is_train:
-            self.requires_grad_(True)
+        if mode:
+            if self._is_train:
+                self.requires_grad_(True)
+            else:
+                self.requires_grad_(False)
+
+            for module in self._training_layers:
+                module.requires_grad_(True)
         else:
             self.requires_grad_(False)
-
-        for module in self._training_layers:
-            module.requires_grad_(True)
-
-    def eval(self):
-        super(ResNet, self).eval()
-        self.requires_grad_(False)
+        super(ResNet, self).train()

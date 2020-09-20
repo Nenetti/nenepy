@@ -35,7 +35,8 @@ class DeepLabV3Plus(AbstractNetworkArchitecture):
         if backbone not in backbone_list:
             raise ValueError()
 
-        self._backbone_encoder = backbone(in_channels=in_channels, reduction_rate=16, pretrained=backbone_pretrained, is_feature_extraction=True, **backbone_kwargs)
+        self._backbone_encoder = backbone(in_channels=in_channels, reduction_rate=16, pretrained=backbone_pretrained, is_feature_extraction=True,
+                                          **backbone_kwargs)
 
         self._gci = GlobalCueInjection()
 
@@ -121,13 +122,11 @@ class DeepLabV3Plus(AbstractNetworkArchitecture):
         return masks
 
     def train(self, mode=True):
+        if mode:
+            self.requires_grad_(requires_grad=True)
+        else:
+            self.requires_grad_(requires_grad=False)
         super(DeepLabV3Plus, self).train()
-        self.requires_grad_(requires_grad=True)
-        self._backbone_encoder.train()
-
-    def eval(self):
-        super(DeepLabV3Plus, self).eval()
-        self.requires_grad_(requires_grad=False)
 
     #
     # def parameters_dict(self, base_lr, wd):
