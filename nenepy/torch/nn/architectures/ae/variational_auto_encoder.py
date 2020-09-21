@@ -32,25 +32,29 @@ class VariationalAutoEncoder(nn.Module):
             n_samples (int):
 
         Returns:
-            torch.Tensor:
-            torch.Tensor:
-            torch.Tensor:
+            tuple[torch.Tensor]:
             torch.Tensor:
 
         Shapes:
             [-1, C, H, W]
             ->
-            [-1, N]
-            [-1, N]
-            [-1, N]
+            ([-1, N], [-1, N], [-1, N])
             [-1, C, H, W]
 
         """
         mu, sigma = self._encoder(x)
         z = self.sampling(mu, sigma, n_samples)
-        decoder_out = self._decoder(z)
+        reconst_x = self._decoder(z)
 
-        return mu, sigma, z, decoder_out
+        latents = (mu, sigma, z)
+
+        return latents, reconst_x
+
+    # ==============================================================================
+    #
+    #   Private Method
+    #
+    # ==============================================================================
 
     def sampling(self, mu, sigma, n_samples):
         if self.training:
@@ -96,6 +100,12 @@ class Loss(nn.Module):
 
         """
         return self._kl_divergence(self.prior, Normal(mu, sigma)) + self._reconstruction(x, reconst_x)
+
+    # ==============================================================================
+    #
+    #   Private Method
+    #
+    # ==============================================================================
 
     @staticmethod
     def _reconstruction(x, reconst_x):

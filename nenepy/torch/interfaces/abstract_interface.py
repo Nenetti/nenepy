@@ -13,7 +13,7 @@ from nenepy.utils.dictionary import ListDict
 
 class AbstractInterface(metaclass=ABCMeta):
 
-    def __init__(self, mode, model, logger, save_interval=10):
+    def __init__(self, mode, model, logger, save_interval):
         """
 
         Args:
@@ -51,7 +51,7 @@ class AbstractInterface(metaclass=ABCMeta):
         self.register_forward_hook(self._default_hook)
 
     def _init_log(self):
-        if self.logger.get(self.log_time_key) is None:
+        if self.log_time_key not in self.logger:
             self.logger[self.log_time_key] = 0
 
     # ==============================================================================
@@ -71,10 +71,20 @@ class AbstractInterface(metaclass=ABCMeta):
     # ==============================================================================
 
     def register_forward_pre_hook(self, hook):
+        """
+        Args:
+            hook (function):
+
+        """
         n_args = len(list(signature(hook).parameters))
         self._forward_pre_hooks[id(hook)] = (n_args, hook)
 
     def register_forward_hook(self, hook):
+        """
+        Args:
+            hook (function):
+
+        """
         n_args = len(list(signature(hook).parameters))
         self._forward_hooks[id(hook)] = (n_args, hook)
 
