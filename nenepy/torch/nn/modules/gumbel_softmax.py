@@ -6,10 +6,11 @@ from torch.functional import F
 
 class GumbelSoftmax(nn.Module):
 
-    def __init__(self, tau=1, hard=False, eps=1e-10, dim=-1):
+    def __init__(self, tau=1, hard=False, noise=True, eps=1e-10, dim=-1):
         super(GumbelSoftmax, self).__init__()
         self._tau = tau
         self._hard = hard
+        self._noise = noise
         self._eps = eps
         self._dim = dim
 
@@ -19,18 +20,8 @@ class GumbelSoftmax(nn.Module):
         Args:
             logits (torch.Tensor):
 
-        Returns:
-
         """
-        if self._hard:
-            dim = self._dim
-            n_dims = logits.dim()
-
-            dims = [*range(0, dim), *range(dim + 1, n_dims), dim]
-            reconst_dims = [*range(0, dim), (n_dims - 1), *range(dim, (n_dims - 1))]
-
-            probs = logits.contiguous().permute(dims=dims)
-            sample = RelaxedOneHotCategorical(temperature=self._tau, probs=probs).rsample()
-            return sample.contiguous().permute(reconst_dims).contiguous()
+        if self._noise:
+            return F.gumbel_softmax(logits, tau=self._tau, hard=self._hard, dim=self._dim)
         else:
-            return F.gumbel_softmax(torch.log(logits + self._eps), tau=self._tau, hard=self._hard, dim=self._dim)
+            return torch.softmax((logits / self._tau), dim=self._dim)
