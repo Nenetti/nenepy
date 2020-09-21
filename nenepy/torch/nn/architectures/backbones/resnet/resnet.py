@@ -195,13 +195,18 @@ class ResNet(TorchResNet):
 
     def train(self, mode=True):
         if mode:
-            if self._is_train:
-                self.requires_grad_(True)
-            else:
-                self.requires_grad_(False)
-
-            for module in self._training_layers:
-                module.requires_grad_(True)
+            # if self._is_train:
+            #     self.requires_grad_(True)
+            # else:
+            #     self.requires_grad_(False)
+            #
+            # for module in self._training_layers:
+            #     module.requires_grad_(True)
+            self.requires_grad_(True)
         else:
             self.requires_grad_(False)
         super(ResNet, self).train()
+
+    def parameters(self, recurse=True):
+        for layer in self._training_layers:
+            yield layer.parameters()
