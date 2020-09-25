@@ -24,4 +24,9 @@ class GumbelSoftmax(nn.Module):
         if self._noise:
             return F.gumbel_softmax(logits, tau=self._tau, hard=self._hard, dim=self._dim)
         else:
-            return torch.softmax((logits / self._tau), dim=self._dim)
+            x = torch.softmax((logits / self._tau), dim=self._dim)
+            if self._hard:
+                index = x.max(self._dim, keepdim=True)[1]
+                hard = torch.zeros_like(logits, memory_format=torch.legacy_contiguous_format).scatter_(self._dim, index, 1.0)
+                x = hard - x.detach() + x
+            return x
