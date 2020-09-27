@@ -33,6 +33,8 @@ class MNISTDataset(Dataset):
             scale = (1, 1)
 
         self._transform = tf.Compose([
+            tf.RandomColorFlip(p=0.5),
+            tf.RandomColorJitter(p=1.0, hue=0.5),
             tf.RandomResizedCrop(size=size, scale=scale),
             tf.ToTensor(),
         ])
@@ -63,11 +65,11 @@ class MNISTDataset(Dataset):
 
         """
         img, label_index = self.dataset[index]
+        img = img.convert("RGB")
         label = np.zeros(shape=10)
         label[label_index] = 1
 
         img = self._transform(img)
-        img = torch.cat([img, img, img], dim=0)
 
         label = torch.from_numpy(label).type(torch.float32)
         return img, label, str(index)
