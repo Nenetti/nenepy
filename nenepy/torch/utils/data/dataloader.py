@@ -13,7 +13,7 @@ class DataLoader(TorchDataLoader):
                  dataset,
                  batch_size,
                  num_workers=0,
-                 pin_memory=True,
+                 pin_memory=False,
                  break_iteration=-1,
                  shuffle=False,
                  shuffle_iteration=0,
