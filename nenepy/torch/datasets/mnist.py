@@ -14,7 +14,8 @@ class MNISTDataset(Dataset):
 
     """
 
-    def __init__(self, mode, size=None, scale=None, root_dir="./data"):
+    def __init__(self, mode, crop_size=None, scale=None, root_dir="./data",
+                 is_transform=False):
         """
 
         Args:
@@ -24,18 +25,25 @@ class MNISTDataset(Dataset):
         root_dir = Path(root_dir)
         self.mode = mode
 
+        self._is_transform = is_transform
+
         is_train = (mode is Mode.TRAIN)
         self.dataset = torchvision.datasets.MNIST(root=root_dir, train=is_train, download=True)
 
-        if size is None:
-            size = (28, 28)
+        if crop_size is None:
+            crop_size = (28, 28)
         if scale is None:
             scale = (1, 1)
 
-        self._transform = tf.Compose([
+        self._transforms = tf.Compose([
             tf.RandomColorFlip(p=0.5),
             tf.RandomColorJitter(p=1.0, brightness=0, contrast=(0, 1), saturation=(0, 1), hue=(-0.5, 0.5)),
-            tf.RandomResizedCrop(size=size, scale=scale),
+            tf.RandomResizedCrop(size=crop_size, scale=scale),
+            tf.ToTensor(),
+        ])
+
+        self._resize_only_transforms = tf.Compose([
+            tf.RandomResizedCrop(size=crop_size, scale=(1.0, 1.0)),
             tf.ToTensor(),
         ])
 
@@ -69,14 +77,13 @@ class MNISTDataset(Dataset):
         label = np.zeros(shape=10)
         label[label_index] = 1
 
-        img = self._transform(img)
+        if self._is_transform:
+            img = self._transforms(img)
+        else:
+            img = self._resize_only_transforms(img)
 
         label = torch.from_numpy(label).type(torch.float32)
         return img, label, str(index)
-
-        # labels = torch.from_numpy(label).type(torch.float32)
-        # # Ignoring background
-        # return raw_image, rgb_depth, torch.empty(size=(1, 1)), labels, self._raw_image_paths[index].name
 
     def __len__(self):
         """
