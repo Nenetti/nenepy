@@ -6,7 +6,7 @@ from nenepy.torch.losses.distributions import Log, E, KullbackLeibler
 
 class VariationalAutoEncoder(nn.Module):
 
-    def __init__(self, encoder, decoder, z_dim):
+    def __init__(self, encoder, decoder):
         """
 
         Args:
@@ -19,11 +19,6 @@ class VariationalAutoEncoder(nn.Module):
 
         self._encoder = encoder
         self._decoder = decoder
-        self._z_dim = z_dim
-
-    @property
-    def z_dim(self):
-        return self._z_dim
 
     def forward(self, x, n_samples=0):
         """
