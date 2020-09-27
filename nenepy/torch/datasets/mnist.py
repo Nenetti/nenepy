@@ -34,7 +34,7 @@ class MNISTDataset(Dataset):
 
         self._transform = tf.Compose([
             tf.RandomColorFlip(p=0.5),
-            tf.RandomColorJitter(p=1.0, brightness=0, contrast=(0, 1), saturation=(0, 1), hue=0),
+            tf.RandomColorJitter(p=1.0, brightness=0, contrast=(0, 1), saturation=(0, 1), hue=(-0.5, 0.5)),
             tf.RandomResizedCrop(size=size, scale=scale),
             tf.ToTensor(),
         ])
