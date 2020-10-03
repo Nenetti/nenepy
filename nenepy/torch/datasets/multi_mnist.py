@@ -9,7 +9,7 @@ from nenepy.torch import transforms as tf
 from nenepy.torch.interfaces import Mode
 
 
-class MNIST(Dataset):
+class MultiMNIST(Dataset):
     """
 
     """
@@ -34,6 +34,15 @@ class MNIST(Dataset):
             crop_size = (28, 28)
         if scale is None:
             scale = (1, 1)
+
+        crop_size = (32, 32)
+
+        self.multi_transform = tf.Compose([
+            tf.RandomChannelColorFlip(p=1.0),
+            tf.RandomColorJitter(p=1.0, brightness=0, contrast=0, saturation=0, hue=(-0.5, 0.5)),
+            tf.RandomResizedCrop(size=crop_size, scale=(1, 1)),
+            tf.ToTensor(),
+        ])
 
         self._transforms = tf.Compose([
             # tf.RandomColorFlip(p=0.5),
@@ -78,10 +87,13 @@ class MNIST(Dataset):
         label = np.zeros(shape=10)
         label[label_index] = 1
 
-        if self._is_transform:
-            img = self._transforms(img)
-        else:
-            img = self._resize_only_transforms(img)
+        imgs = [img.copy() for i in range(4)]
+        for i in range(4):
+            imgs[i] = self.multi_transform(imgs[i])
+
+        a = torch.cat([imgs[0], imgs[1]], dim=1)
+        b = torch.cat([imgs[2], imgs[3]], dim=1)
+        img = torch.cat([a, b], dim=2)
 
         label = torch.from_numpy(label).type(torch.float32)
         return img, label, str(index)

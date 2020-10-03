@@ -4,5 +4,7 @@ from .aspp import ASPP
 from .global_cue_injection import GlobalCueInjection
 from .dynamic_upsample import DynamicUpsample
 from .gumbel_softmax import GumbelSoftmax
+from .gumbel_log_softmax import GumbelLogSoftmax
 from .reshape import Reshape
 from .expand import Expand
+from .log_tanh import LogTanh

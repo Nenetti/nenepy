@@ -10,16 +10,12 @@ class RandomColorFlip:
         self.p = p
 
     @staticmethod
-    def transform(image, channels):
+    def transform(image):
         image = np.array(image)
-        for channel in channels:
-            image[:, :, channel] = 255 - image[:, :, channel]
-        return Image.fromarray(image)
+        return Image.fromarray(255 - image)
 
     def __call__(self, *images):
         if random.random() < self.p:
-            k = random.choice([1, 2, 3])
-            c = random.sample([0, 1, 2], k)
-            return (self.transform(img, c) if img.mode != "L" else img for img in images)
+            return (self.transform(img) if img.mode != "L" else img for img in images)
 
         return images

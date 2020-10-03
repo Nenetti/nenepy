@@ -1,4 +1,5 @@
 from .compose import Compose
+from .random_channel_swap import RandomChannelColorFlip
 from .random_color_flip import RandomColorFlip
 from .random_color_jitter import RandomColorJitter
 from .random_erasing import RandomErasing

@@ -1,6 +1,7 @@
 import inspect
 import sys
 from collections import OrderedDict, Counter
+from numbers import Number
 from time import sleep
 
 import numpy as np
@@ -352,8 +353,9 @@ class Block:
     def _get_max_input_shape_length(cls):
         max_length = 0
         for block in cls.all_blocks:
-            length = max([len(s) for s in block.input_str_shapes])
-            max_length = max(max_length, length)
+            if len(block.input_str_shapes) > 0:
+                length = max([len(s) for s in block.input_str_shapes])
+                max_length = max(max_length, length)
 
         return max_length
 
@@ -371,8 +373,9 @@ class Block:
     def _get_max_input_args_length(cls):
         max_length = 0
         for block in cls.all_blocks:
-            length = max([len(f"{arg}: ") for arg in block.input_kwargs.keys()])
-            max_length = max(max_length, length)
+            if len(block.input_kwargs) > 0:
+                length = max([len(f"{arg}: ") for arg in block.input_kwargs.keys()])
+                max_length = max(max_length, length)
 
         return max_length
 
@@ -485,12 +488,16 @@ class InputSizeStr:
             is_tensor = False
             string = "Unknown"
 
+            if isinstance(tensor, (Number, bool)):
+                string = str(tensor)
+
         return InputSizeStr(tensor, string, is_tensor, coefficient)
 
     @staticmethod
     def tensor_to_string_size(tensor):
         size = list(tensor.size())
-        size[0] = -1
+        if len(size) > 0:
+            size[0] = -1
         size = list(map(str, size))
         return size
 
@@ -898,6 +905,9 @@ class Summary:
                     input_kwargs[key] = module_in[i]
             else:
                 break
+
+        if len(input_kwargs) == 0:
+            print(type(module))
 
         output_kwargs = OrderedDict()
         for i, out in enumerate(module_out):
