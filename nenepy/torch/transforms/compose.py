@@ -1,3 +1,5 @@
+import types
+
 import PIL
 import numpy as np
 import torch
@@ -17,11 +19,12 @@ class Compose(transforms.Compose):
 
         else:
             indexes, tensors = self.is_tensors(images)
-
             for t in self.transforms:
                 tensors = t(*tensors)
 
-            if not isinstance(tensors, (tuple, list)):
+            if isinstance(tensors, types.GeneratorType):
+                tensors = tuple(tensors)
+            elif not isinstance(tensors, (tuple, list)):
                 tensors = (tensors,)
 
             output = list(images)
@@ -39,5 +42,5 @@ class Compose(transforms.Compose):
             if isinstance(image, PIL.Image.Image) or isinstance(image, np.ndarray) or isinstance(image, torch.Tensor):
                 indexes[index] = i
                 tensors[index] = image
-
+                index += 1
         return indexes[:index + 1], tensors[:index + 1]

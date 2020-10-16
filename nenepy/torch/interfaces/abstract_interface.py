@@ -13,7 +13,7 @@ from nenepy.utils.dictionary import ListDict
 
 class AbstractInterface(metaclass=ABCMeta):
 
-    def __init__(self, mode, model, logger, save_interval):
+    def __init__(self, mode, model, logger, save_interval, save_multi_process=False, dataset_kwargs={}, dataloader_kwargs={}):
         """
 
         Args:
@@ -32,7 +32,7 @@ class AbstractInterface(metaclass=ABCMeta):
 
         # ----- Log ----- #
         self.logger = logger
-        self.board_writer = TensorBoardWriter(log_dir=Path(logger.log_dir).joinpath(mode.name))
+        self.board_writer = TensorBoardWriter(log_dir=Path(logger.log_dir).joinpath(mode.name), multi_process=save_multi_process)
 
         # ----- etc ----- #
         self.mode = mode

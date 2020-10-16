@@ -8,6 +8,6 @@ class RandomGrayscale(transforms.RandomGrayscale):
 
     def __call__(self, *images):
         if random.random() < self.p:
-            return (F.to_grayscale(img, num_output_channels=(1 if img.mode == 'L' else 3)) for img in images)
+            return (F.to_grayscale(img, num_output_channels=(1 if (img.mode == "L") else 3)) if img.mode != "P" else img for img in images)
 
         return images

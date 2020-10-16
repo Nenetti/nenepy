@@ -56,21 +56,43 @@ class GlobalCueInjection(nn.Module):
             torch.Tensor:
 
         """
-        batch_size, n_channels, _, _ = shallow_x.size()
+        B, C, _, _ = shallow_x.size()
 
-        deep_x, _ = deep_x.contiguous().view(batch_size, n_channels * 2, -1).max(dim=2)
-        deep_x = deep_x.contiguous().view(batch_size, n_channels, 2)
-
+        deep_x, _ = deep_x.contiguous().view(B, C * 2, -1).max(dim=2)
+        deep_x = deep_x.contiguous().view(B, C, 2)
         gamma, beta = deep_x[:, :, 0], deep_x[:, :, 1]
 
-        reshape_x = shallow_x.contiguous().view(batch_size, n_channels, -1)
-        mean = reshape_x.mean(dim=2)
-        variance = reshape_x.var(dim=2) + 1e-6
-        standard = variance.sqrt()
-
-        mean = mean[:, :, None, None]
-        standard = standard[:, :, None, None]
         gamma = gamma[:, :, None, None]
         beta = beta[:, :, None, None]
-        # print(torch.isfinite(F.relu(gamma * ((shallow_x - mean) / standard) + beta).sum()))
-        return F.relu(gamma * ((shallow_x - mean) / standard) + beta)
+        return F.relu(shallow_x * (gamma + 1) + beta)
+    #
+    # @staticmethod
+    # def adain(shallow_x, deep_x):
+    #     """
+    #
+    #     Args:
+    #         shallow_x (torch.Tensor):    Shallow Features    [B, C, H, W]
+    #         deep_x (torch.Tensor):       Deep Features       [B, C, H, W]
+    #
+    #     Returns:
+    #         torch.Tensor:
+    #
+    #     """
+    #     B, C, _, _ = shallow_x.size()
+    #
+    #     deep_x, _ = deep_x.contiguous().view(B, C * 2, -1).max(dim=2)
+    #     deep_x = deep_x.contiguous().view(B, C, 2)
+    #
+    #     gamma, beta = deep_x[:, :, 0], deep_x[:, :, 1]
+    #
+    #     reshape_x = shallow_x.contiguous().view(B, C, -1)
+    #     mean = reshape_x.mean(dim=2)
+    #     variance = reshape_x.var(dim=2) + 1e-6
+    #     standard = variance.sqrt()
+    #
+    #     mean = mean[:, :, None, None]
+    #     standard = standard[:, :, None, None]
+    #     gamma = gamma[:, :, None, None]
+    #     beta = beta[:, :, None, None]
+    #
+    #     return F.relu(gamma * ((shallow_x - mean) / standard) + beta)

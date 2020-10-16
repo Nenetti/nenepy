@@ -24,10 +24,15 @@ class DeepLabV3Plus(AbstractNetworkArchitecture):
 
         self._init_encoder(in_channels, backbone, backbone_pretrained, backbone_kwargs)
         self._init_decoder(out_channels)
-        self.train()
 
     def _init_encoder(self, in_channels, backbone, backbone_pretrained, backbone_kwargs):
         """
+
+        Args:
+            in_channels (int):
+            backbone (nn.Module):
+            backbone_pretrained (bool):
+            backbone_kwargs (dict):
 
         Returns:
 
@@ -62,6 +67,10 @@ class DeepLabV3Plus(AbstractNetworkArchitecture):
         self._add_training_modules(self._aspp)
         self._add_training_modules(self._low_level_skip)
         self._add_training_modules(self._conv_3x3)
+        for m in self._backbone_encoder.modules():
+            if isinstance(m, nn.BatchNorm2d):
+                self._add_untraining_modules(m)
+        self._add_untraining_modules(self._backbone_encoder.conv1)
 
     def _init_decoder(self, out_channels):
         """
@@ -106,64 +115,62 @@ class DeepLabV3Plus(AbstractNetworkArchitecture):
 
         """
 
-        # ----- Forward Encoder (Feature Extraction) ----- #
-        low_feature, encoder_x = self._forward_encoder(x)
-
-        # ----- Forward Decoder (Convert feature to mask) ----- #
-        feature_maps = self._forward_decoder(low_feature, encoder_x)
-
-        masks = self._post_processing(feature_maps)
-        masks = self._upsampling(masks, size=output_size)
+        low_feature, deep_feature = self._forward_encoder(x)
+        feature_maps = self._forward_decoder(low_feature, deep_feature)
 
         if return_features:
-            feature_maps = self._upsampling(feature_maps, size=output_size)
-            return feature_maps, masks
+            return feature_maps
 
-        return masks
+        else:
+            masks = self._post_processing(feature_maps)
+            masks = self._upsampling(masks, size=output_size)
+
+            return masks
 
     def train(self, mode=True):
+        super(DeepLabV3Plus, self).train()
         if mode:
             self.requires_grad_(requires_grad=True)
+            for m in self.untraining_layers:
+                m.requires_grad_(requires_grad=False)
         else:
             self.requires_grad_(requires_grad=False)
-        super(DeepLabV3Plus, self).train()
 
-    #
-    # def parameters_dict(self, base_lr, wd):
-    #
-    #     # 1., 2., 10., 20.
-    #     w_old, b_old, w_new, b_new = 1., 1., 10., 10.
-    #
-    #     groups = [
-    #         {"params": [], "weight_decay": wd, "lr": w_old * base_lr},  # weight learning
-    #         {"params": [], "weight_decay": 0.0, "lr": b_old * base_lr},  # bias finetuning
-    #         {"params": [], "weight_decay": wd, "lr": w_new * base_lr},  # weight finetuning
-    #         {"params": [], "weight_decay": 0.0, "lr": b_new * base_lr}
-    #     ]
-    #
-    #     for m in self.modules():
-    #
-    #         if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear) or isinstance(m, nn.BatchNorm2d):
-    #
-    #             if m.weight is not None:
-    #                 if m in self.training_modules:
-    #                     groups[2]["params"].append(m.weight)
-    #                 else:
-    #                     groups[0]["params"].append(m.weight)
-    #
-    #             if m.bias is not None:
-    #                 if m in self.training_modules:
-    #                     groups[3]["params"].append(m.bias)
-    #                 else:
-    #                     groups[1]["params"].append(m.bias)
-    #
-    #         elif hasattr(m, "weight"):
-    #             print("! Skipping learnable: ", m)
-    #
-    #     for i, g in enumerate(groups):
-    #         print("Group {}: #{}, LR={:4.3e}".format(i, len(g["params"]), g["lr"]))
-    #
-    #     return groups
+    def parameters_dict(self, base_lr, wd):
+
+        # 1., 2., 10., 20.
+        w_old, b_old, w_new, b_new = 1., 2., 10., 10.
+
+        groups = [
+            {"params": [], "weight_decay": wd, "lr": w_old * base_lr},  # weight learning
+            {"params": [], "weight_decay": 0.0, "lr": b_old * base_lr},  # bias finetuning
+            {"params": [], "weight_decay": wd, "lr": w_new * base_lr},  # weight finetuning
+            {"params": [], "weight_decay": 0.0, "lr": b_new * base_lr}
+        ]
+
+        for m in self.modules():
+            if m in self.untraining_layers:
+                continue
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear) or isinstance(m, nn.BatchNorm2d):
+                if m.weight is not None:
+                    if m in self.training_layers:
+                        groups[2]["params"].append(m.weight)
+                    else:
+                        groups[0]["params"].append(m.weight)
+
+                if m.bias is not None:
+                    if m in self.training_layers:
+                        groups[3]["params"].append(m.bias)
+                    else:
+                        groups[1]["params"].append(m.bias)
+
+            elif hasattr(m, "weight"):
+                print("! Skipping learnable: ", m)
+
+        for i, g in enumerate(groups):
+            print("Group {}: #{}, LR={:4.3e}".format(i, len(g["params"]), g["lr"]))
+
+        return groups
 
     # ==============================================================================
     #
@@ -173,8 +180,6 @@ class DeepLabV3Plus(AbstractNetworkArchitecture):
 
     def _forward_encoder(self, x):
         """
-        Encoder部分の計算
-
         Args:
             x (torch.Tensor): raw image
 
@@ -182,38 +187,32 @@ class DeepLabV3Plus(AbstractNetworkArchitecture):
             torch.Tensor:
 
         """
+        _, low_feature, _, _, deep_feature = self._backbone_encoder(x)
 
-        # 1. Feature Extraction (Backbone (ResNet))
-        _, low_feature, _, _, high_feature = self._backbone_encoder(x)
+        deep_feature = self._aspp(deep_feature)
+        deep_feature = self._upsampling(deep_feature, size=tuple(low_feature.shape[-2:]))
 
-        # 2. Atrous Spatial Pyramid Pooling (ASPP) (from deeplabv3)
-        aspp_x = self._aspp(high_feature)
-        aspp_x = self._upsampling(aspp_x, size=tuple(low_feature.shape[-2:]))
+        return low_feature, deep_feature
 
-        return low_feature, aspp_x
-
-    def _forward_decoder(self, low_feature, x):
+    def _forward_decoder(self, low_feature, deep_feature):
         """
         Decoder部分の計算
 
         Args:
-            x (torch.Tensor):
+            low_feature (torch.Tensor):
+            deep_feature (torch.Tensor):
 
         Returns:
             torch.Tensor:
 
         """
-
-        # 3. Connect low-level feature to high-level feature
-        #    Concatenate low-level feature with high-level feature
-
         skip_x = self._low_level_skip(low_feature)
-        concat_x = self._concat(x, skip_x)
+        concat_x = self._concat(deep_feature, skip_x)
         concat_x = self._conv_3x3(concat_x)
 
         # 4. Deep feature context for shallow features
         gci_x = self._gci(low_feature, concat_x)
-        sg_x = self._stochastic_gate(gci_x, concat_x, p=self._sg_psi)
+        sg_x = self._stochastic_gate(concat_x, gci_x, p=self._sg_psi)
 
         x_out = self._deconv(sg_x)
 

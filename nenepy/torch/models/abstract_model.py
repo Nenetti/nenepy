@@ -48,6 +48,48 @@ class AbstractModel(metaclass=ABCMeta):
         else:
             self.network_model = self.network_model.to(self.device)
 
+    @staticmethod
+    def _init_weights(net, init_type="normal", init_gain=0.02):
+        """Initialize network weights.
+
+        Parameters:
+            net (network)   -- network to be initialized
+            init_type (str) -- the name of an initialization method: normal | xavier | kaiming | orthogonal
+            init_gain (float)    -- scaling factor for normal, xavier and orthogonal.
+
+        We use "normal" in the original pix2pix and CycleGAN paper. But xavier and kaiming might
+        work better for some applications. Feel free to try yourself.
+        """
+
+        def initialize(m):
+            if hasattr(m, "weight") and (isinstance(m, nn.modules.conv._ConvNd) or isinstance(m, nn.Linear)):
+                if init_type == "normal":
+                    nn.init.normal_(m.weight.data, 0.0, init_gain)
+
+                elif init_type == "xavier":
+                    nn.init.xavier_normal_(m.weight.data, gain=init_gain)
+
+                elif init_type == "kaiming":
+                    nn.init.kaiming_normal_(m.weight.data, a=0, mode="fan_in")
+
+                elif init_type == "orthogonal":
+                    nn.init.orthogonal_(m.weight.data, gain=init_gain)
+
+                else:
+                    raise NotImplementedError("initialization method [%s] is not implemented" % init_type)
+
+                if hasattr(m, "bias") and m.bias is not None:
+                    nn.init.constant_(m.bias.data, 0.0)
+
+            elif isinstance(m, nn.modules.batchnorm._NormBase):
+                if hasattr(m, "weight"):
+                    nn.init.normal_(m.weight.data, 1.0, init_gain)
+                if hasattr(m, "bias"):
+                    nn.init.constant_(m.bias.data, 0.0)
+
+        print("initialize network with %s" % init_type)
+        net.apply(initialize)  # apply the initialization function <init_func>
+
     # ==============================================================================
     #
     #   Abstract Method

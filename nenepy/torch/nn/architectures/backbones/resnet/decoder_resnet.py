@@ -8,6 +8,11 @@ def deconv3x3(in_channels, out_channels, kernel_size=3, stride=1, groups=1, dila
     return nn.ConvTranspose2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=dilation, groups=groups, bias=False, dilation=dilation)
 
 
+def conv3x3(in_channels, out_channels, kernel_size=3, stride=1, groups=1, dilation=1):
+    """3x3 convolution with padding"""
+    return nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=dilation, groups=groups, bias=False, dilation=dilation)
+
+
 def deconv1x1(in_channels, out_channels, kernel_size=1, stride=1):
     """1x1 convolution"""
     return nn.ConvTranspose2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, bias=False)
@@ -27,10 +32,13 @@ class BackwardBasicBlock(nn.Module):
             raise ValueError('BasicBlock only supports groups=1 and base_width=64')
         if dilation > 1:
             raise NotImplementedError("Dilation > 1 not supported in BasicBlock")
-        self.conv1 = deconv3x3(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride)
+        if stride == 1:
+            self.conv1 = conv3x3(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride)
+        else:
+            self.conv1 = deconv3x3(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride)
         self.bn1 = norm_layer(out_channels)
         self.relu = activation_layer(**activation_kwargs)
-        self.conv2 = deconv3x3(in_channels=out_channels, out_channels=out_channels)
+        self.conv2 = conv3x3(in_channels=out_channels, out_channels=out_channels)
         self.bn2 = norm_layer(out_channels)
         self.downsample = downsample
 
@@ -236,11 +244,10 @@ class DecoderResNet(TorchResNet):
         x1 = self.layer3(x0)
         x2 = self.layer2(x1)
         x3 = self.layer1(x2)
-        return x3
         x4 = self.maxpool(x3)
         x4 = self.conv1(x4)
 
-        x4 = self._post_processing(x4)
+        # x4 = self._post_processing(x4)
 
         return x4
 

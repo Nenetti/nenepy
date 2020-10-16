@@ -9,6 +9,7 @@ class AbstractNetworkArchitecture(nn.Module, metaclass=ABCMeta):
     def __init__(self):
         super().__init__()
         self.training_layers = []
+        self.untraining_layers = []
 
     def forward(self, *args, **kwargs):
         raise NotImplementedError()
@@ -17,13 +18,17 @@ class AbstractNetworkArchitecture(nn.Module, metaclass=ABCMeta):
         self.training_layers.extend(module.modules())
         self._initialize_weights(module)
 
+    def _add_untraining_modules(self, module):
+        self.untraining_layers.extend(module.modules())
+
     def _initialize_weights(self, module):
         for m in module.modules():
             if m not in self.training_layers:
                 continue
 
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                # nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.kaiming_normal_(m.weight)
 
             elif isinstance(m, nn.BatchNorm2d):
                 if m.weight is not None:
@@ -38,6 +43,9 @@ class AbstractNetworkArchitecture(nn.Module, metaclass=ABCMeta):
 
         modules = []
         for m in self.modules():
+            if m in self.untraining_layers:
+                continue
+
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear) or isinstance(m, nn.BatchNorm2d):
                 if m.weight is not None:
                     modules.append(m.weight)

@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from torch.functional import F
 
+from nenepy.torch.losses import BalancedMaskLoss
 from nenepy.torch.nn.architectures import AbstractNetworkArchitecture
 from nenepy.torch.nn.architectures.segmentation import DeepLabV3Plus
 from nenepy.torch.nn.modules import PAMR
@@ -12,14 +13,18 @@ class WeaklySupervisedSegmentation(AbstractNetworkArchitecture):
 
     """
 
-    def __init__(self, in_channels, out_channels, backbone, backbone_pretrained=True,
-                 sg_psi=0.3, focal_p=3, focal_lambda=0.01,
-                 pamr_iter=10, pamr_kernel=[1, 2, 4, 8, 12, 24], pseudo_lower=0.2):
+    def __init__(
+            self, in_channels, out_channels,
+            backbone, backbone_pretrained=True, backbone_kwargs={},
+            sg_psi=0.3, focal_p=3, focal_lambda=0.01,
+            pamr_iter=10, pamr_kernel=[1, 2, 4, 8, 12, 24], pseudo_lower=0.2
+    ):
         super(WeaklySupervisedSegmentation, self).__init__()
 
         self.semantic_segmentation = DeepLabV3Plus(
             in_channels=in_channels, out_channels=out_channels,
-            backbone=backbone, backbone_pretrained=backbone_pretrained, sg_psi=sg_psi
+            backbone=backbone, backbone_pretrained=backbone_pretrained, backbone_kwargs=backbone_kwargs,
+            sg_psi=sg_psi
         )
 
         self.pamr = PAMR(
@@ -60,42 +65,40 @@ class WeaklySupervisedSegmentation(AbstractNetworkArchitecture):
 
         # ----- Forward Encoder (Feature Extraction) ----- #
         # ----- Forward Decoder (Convert feature to mask) ----- #
-        height, width = x.shape[-2:]
-        feature_maps, _ = self.semantic_segmentation(x, return_features=True, output_size=(int(height // 4), int(width // 4)))
+        H, W = x.shape[-2:]
+        feature_maps = self.semantic_segmentation(x, return_features=True, output_size=(int(H // 4), int(W // 4)))
 
         background = torch.ones_like(feature_maps[:, :1])
         feature_maps = torch.cat([background, feature_maps], dim=1)
         masks = F.softmax(feature_maps, dim=1)
 
         # ----- Reshaping ([H, W] -> [H * W]) ----- #
-        batch_size, n_channels, _, _ = feature_maps.size()
-        reshape_features = feature_maps.contiguous().view(batch_size, n_channels, -1)
-        reshape_masks = masks.contiguous().view(batch_size, n_channels, -1)
+        B, C, _, _ = feature_maps.size()
+        reshape_features = feature_maps.contiguous().view(B, C, -1)
+        reshape_masks = masks.contiguous().view(B, C, -1)
 
         # ----- Classification ----- #
         loss_ngwp = self._normalized_global_weighted_pooling(features=reshape_features, masks=reshape_masks)
         loss_size_focal = self._size_focal_penalty(masks=reshape_masks, p=self.focal_p, lambda_=self.focal_lambda)
-        classification = torch.sigmoid(loss_ngwp[:, 1:] + loss_size_focal[:, 1:])
-
+        classification = loss_ngwp[:, 1:] + loss_size_focal[:, 1:]
         if is_classification_only:
-            return classification, feature_maps, self.upsampling_x4(masks), None, None
+            return classification, feature_maps, self.upsampling_x4(masks)
 
+        # ----- Mask Refinement (PAMR) ----- #
+        pamr_masks = self._forward_pamr(x_for_pamr, masks)
+
+        # ----- Up-Scaling ----- #
+        if use_gt_label:
+            masks = self._upsampling_x4_and_clean(masks, label)
+            pamr_masks = self._upsampling_x4_and_clean(pamr_masks, label)
         else:
-            # ----- Mask Refinement (PAMR) ----- #
-            pamr_masks = self._forward_pamr(x_for_pamr, masks)
+            masks = self.upsampling_x4(masks)
+            pamr_masks = self.upsampling_x4(pamr_masks)
 
-            # ----- Up-Scaling ----- #
-            if use_gt_label:
-                masks = self._upsampling_x4_and_clean(masks, label)
-                pamr_masks = self._upsampling_x4_and_clean(pamr_masks, label)
-            else:
-                masks = self.upsampling_x4(masks)
-                pamr_masks = self.upsampling_x4(pamr_masks)
+        # ----- Pseudo GT-Mask ----- #
+        pseudo_gt = self._pseudo_gtmask(pamr_masks, lowest_limit=self.pseudo_lower).detach()
 
-            # ----- Pseudo GT-Mask ----- #
-            pseudo_gt = self._pseudo_gtmask(pamr_masks, lowest_limit=self.pseudo_lower).detach()
-
-            return classification, feature_maps, masks, pamr_masks, pseudo_gt
+        return classification, feature_maps, masks, pamr_masks, pseudo_gt
 
     def parameters_dict(self, base_lr, wd):
         return self.semantic_segmentation.parameters_dict(base_lr, wd)
@@ -161,9 +164,27 @@ class WeaklySupervisedSegmentation(AbstractNetworkArchitecture):
 
     @staticmethod
     def _normalized_global_weighted_pooling(features, masks, epsilon=1.0):
-        return (features * masks).sum(2) / (epsilon + masks.sum(2))
+        return (features * masks).sum(dim=2) / (epsilon + masks.sum(dim=2))
 
     @staticmethod
     def _size_focal_penalty(masks, p=3, lambda_=0.01):
         m_c = masks.mean(dim=2)
         return torch.pow(1 - m_c, p) * torch.log(lambda_ + m_c)
+
+    @staticmethod
+    def loss(classification, gt_labels, feature_maps=None, pseudo_gt=None, is_classification_only=False):
+        classification_loss = F.multilabel_soft_margin_loss(classification, gt_labels)
+        # classification_loss = nn.MultiLabelSoftMarginLoss()(classification, gt_labels)
+        if is_classification_only:
+            return classification_loss
+
+        mask_loss = BalancedMaskLoss.forward(feature_maps, pseudo_gt, gt_labels, ignore_index=0)
+
+        return classification_loss, mask_loss
+    #
+    # def train(self, mode=True):
+    #     # if mode:
+    #     #     self.requires_grad_(requires_grad=True)
+    #     # else:
+    #     #     self.requires_grad_(requires_grad=False)
+    #     super(WeaklySupervisedSegmentation, self).train()

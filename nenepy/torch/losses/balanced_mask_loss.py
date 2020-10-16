@@ -5,11 +5,12 @@ from torch.functional import F
 
 class BalancedMaskLoss(nn.Module):
 
-    def __init__(self, ignore_index=0):
-        super(BalancedMaskLoss, self).__init__()
-        self.ignore_index = ignore_index
+    # def __init__(self, ignore_index=0):
+    #     super(BalancedMaskLoss, self).__init__()
+    #     self.ignore_index = ignore_index
 
-    def forward(self, feature_maps, pseudo_gt_masks, gt_labels):
+    @staticmethod
+    def forward(feature_maps, pseudo_gt_masks, gt_labels, ignore_index=0):
         """
 
         Args:
@@ -31,7 +32,7 @@ class BalancedMaskLoss(nn.Module):
         gt_mask_indices = pseudo_gt_masks.argmax(dim=1)
 
         # ----- Cross Entropy loss (Ignore Background Index) ----- #
-        loss = F.cross_entropy(feature_maps, gt_mask_indices, ignore_index=self.ignore_index, reduction="none")
+        loss = F.cross_entropy(feature_maps, gt_mask_indices, ignore_index=ignore_index, reduction="none")
         loss = loss.contiguous().view(batch_size, -1)
 
         # ----- Class Weight Balances ----- #

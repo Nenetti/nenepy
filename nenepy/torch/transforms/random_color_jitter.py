@@ -12,6 +12,6 @@ class RandomColorJitter(transforms.ColorJitter):
     def __call__(self, *images):
         if random.random() < self.p:
             transform = self.get_params(self.brightness, self.contrast, self.saturation, self.hue)
-            return (transform(img) if img.mode != "L" else img for img in images)
+            return (transform(img) if (img.mode != "L") and (img.mode != "P") else img for img in images)
 
         return images

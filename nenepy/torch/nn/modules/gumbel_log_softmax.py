@@ -22,14 +22,15 @@ class GumbelLogSoftmax(nn.Module):
 
         """
         if self._noise:
-            noise = -torch.empty_like(logits, memory_format=torch.legacy_contiguous_format).exponential_().log()
+            # noise = -torch.empty_like(logits, memory_format=torch.legacy_contiguous_format).exponential_().log()
+            noise = torch.rand_like(logits)
             x = torch.log_softmax(((logits + noise) / self._tau), dim=self._dim)
         else:
             x = torch.log_softmax((logits / self._tau), dim=self._dim)
 
         if self._hard:
             index = x.max(self._dim, keepdim=True)[1]
-            hard = torch.zeros_like(logits, memory_format=torch.legacy_contiguous_format).scatter_(self._dim, index, 0.0)
+            hard = torch.log(torch.zeros_like(logits, memory_format=torch.legacy_contiguous_format) + 1e-20).scatter_(self._dim, index, 0.0)
             x = hard - x.detach() + x
 
         return x

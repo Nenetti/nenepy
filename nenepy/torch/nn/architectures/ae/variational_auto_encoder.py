@@ -20,7 +20,7 @@ class VariationalAutoEncoder(nn.Module):
         self._encoder = encoder
         self._decoder = decoder
 
-    def forward(self, x, n_samples=0):
+    def forward(self, x):
         """
         Args:
             x (torch.Tensor):
@@ -37,11 +37,11 @@ class VariationalAutoEncoder(nn.Module):
             [-1, C, H, W]
 
         """
-        mu, sigma = self._encoder(x)
-        z = self.sampling(mu, sigma, n_samples)
+        mu, simgas = self._encoder(x)
+        z = self.sampling(mu, simgas)
         reconst_x = self._decoder(z)
 
-        latents = (mu, sigma, z)
+        latents = (mu, simgas, z)
 
         return latents, reconst_x
 
@@ -51,14 +51,8 @@ class VariationalAutoEncoder(nn.Module):
     #
     # ==============================================================================
 
-    def sampling(self, mu, sigma, n_samples):
-        if self.training:
-            if n_samples == 0:
-                return Normal(mu, sigma).rsample()
-            else:
-                return Normal(mu, sigma).rsample(torch.Size([n_samples])).mean(dim=0)
-        else:
-            return mu
+    def sampling(self, mu, sigma):
+        return Normal(mu, sigma).rsample()
 
 
 class Loss(nn.Module):

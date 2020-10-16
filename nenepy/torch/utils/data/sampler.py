@@ -19,5 +19,4 @@ class DesignatedIterativeBatchSampler(BatchSampler):
                 if i == self._break_iteration:
                     break
         if len(batch) > 0 and not self.drop_last:
-            print(batch)
             yield batch
