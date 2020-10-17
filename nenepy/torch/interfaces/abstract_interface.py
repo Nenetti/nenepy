@@ -121,6 +121,19 @@ class AbstractInterface(metaclass=ABCMeta):
             self.model.save_weight()
             print(f"Model and Log Saved. Next Save Epoch: {(self.epoch + self.save_interval)}")
 
+    def _output_time(self, epoch):
+        """
+
+        Args:
+            epoch (int):
+
+        """
+        scalar_dict = {self.mode.name: self.timer.elapsed_time}
+        self.board_writer.add_scalars(namespace="Summary", graph_name="Each Epoch Time", scalar_dict=scalar_dict, step=epoch)
+
+        scalar_dict = {self.mode.name: self.logger[self.log_time_key]}
+        self.board_writer.add_scalars(namespace="Summary", graph_name="Elapsed Time", scalar_dict=scalar_dict, step=epoch)
+
     def _output_loss(self, epoch, output_loss):
         """
 
@@ -148,7 +161,7 @@ class AbstractInterface(metaclass=ABCMeta):
     #         each_loss_dict[class_names[i]] = loss / len(self.dataloader)
     #     self.board_writer.add_scalars(namespace="Class_Loss", graph_name="Validation", scalar_dict=each_loss_dict, step=epoch)
 
-    def _output_learning_rate(self, epoch, graph_name="Learning_Rate"):
+    def _output_learning_rate(self, epoch):
         """
 
         Args:
@@ -166,7 +179,7 @@ class AbstractInterface(metaclass=ABCMeta):
             for i, group in enumerate(self.model.optimizer.param_groups):
                 lr_dict[f"Param{i}"] = group["lr"]
 
-        self.board_writer.add_scalars(namespace=graph_name, graph_name=self.mode.name, scalar_dict=lr_dict, step=epoch)
+        self.board_writer.add_scalars(namespace="Summary", graph_name="Learning_Rate", scalar_dict=lr_dict, step=epoch)
 
     # ==============================================================================
     #

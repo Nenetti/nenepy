@@ -1,4 +1,3 @@
-import numbers
 import shutil
 from pathlib import Path
 
@@ -28,8 +27,8 @@ class Logger(AttrDict):
         """
         super(Logger, self).__init__()
 
-        # if log_dir.exists() and not is_load:
-        #     shutil.rmtree(log_dir)
+        if (log_dir.exists()) and (not is_load):
+            shutil.rmtree(log_dir)
 
         self._log_dir = Path(log_dir)
         self._file_name = log_file
