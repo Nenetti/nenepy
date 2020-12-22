@@ -25,7 +25,7 @@ class AbstractImageVisualizer:
         return ImageFont.truetype(cls.default_font_name, font_size)
 
     @classmethod
-    def _make_information_texts(cls, labels, score, class_names, n_top=5):
+    def _make_information_texts(cls, labels, score, class_names):
         """
 
         Args:
@@ -37,20 +37,44 @@ class AbstractImageVisualizer:
             (str, str):
 
         """
-        if len(score) < n_top:
-            n_top = len(score)
-
-        # ----- Sort Score ----- #
-        sort_score_index = torch.argsort(score, descending=True)
-        sort_score_index = sort_score_index[:n_top]
 
         # ----- Display Text ----- #
+        labels = labels.numpy()
+        score = score.numpy()
         gt_labels = np.array(class_names)[labels == 1]
-        label_names = [f"{class_names[k]}: {score[k]:.2f}" for k in sort_score_index]
-        gt_label_text = f"GT  : ({', '.join(gt_labels)})"
-        predict_label_text = f"Top{n_top}: ({', '.join(label_names)})"
+        gt_indexes = np.where(labels == 1)[0]
+        gt_predict_labels = [f"{class_names[k]}: {score[k]:.2f}" for k in gt_indexes]
+        gt_predict_label_text = f"Positive Classification          : {', '.join(gt_predict_labels)}"
+        error_indexes = np.where((score > 0.1).astype(np.int) - (labels == 1).astype(np.int) == 1)[0]
+        error_labels = [f"{class_names[k]}: {score[k]:.2f}" for k in error_indexes]
+        error_label_text = f"Negative Classification (p > 0.1): {', '.join(error_labels)}"
 
-        return gt_label_text, predict_label_text
+        gt_label_text = f"GT  : {', '.join(gt_labels)}"
+
+        return gt_label_text, gt_predict_label_text, error_label_text
+
+    @classmethod
+    def _make_information_iou_texts(cls, labels, iou, class_names):
+        """
+
+        Args:
+            labels (torch.Tensor):
+            score (torch.Tensor):
+            class_names (torch.Tensor):
+
+        Returns:
+            (str, str):
+
+        """
+
+        # ----- Sort Score ----- #
+
+        # ----- Display Text ----- #
+        indexes = np.where(labels == 1)[0]
+        label_names = [f"{class_names[k]}: {iou[k]:.2f}" for k in indexes]
+        predict_label_text = f"IOU : {', '.join(label_names)}"
+
+        return predict_label_text
 
     @classmethod
     def _make_information_frame(cls, texts, font=None, font_size=-1, font_color=(255, 255, 255), indent_space=10):

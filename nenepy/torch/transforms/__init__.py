@@ -12,3 +12,4 @@ from .random_resized_crop import RandomResizedCrop
 from .random_rotation import RandomRotation
 from .random_vertical_flip import RandomVerticalFlip
 from .to_tensor import ToTensor
+from .resize import Resize

@@ -16,6 +16,8 @@ class ToTensor(transforms.ToTensor):
                 pic = np.array(pic, np.uint8, copy=False).astype(np.int16)
             elif pic.mode == "I":
                 pic = np.array(pic, np.int32)
+            elif pic.mode == "L":
+                pic = np.array(pic, np.int32)
 
         return F.to_tensor(pic)
 

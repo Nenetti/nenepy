@@ -5,6 +5,7 @@ from PIL import Image
 from nenepy.torch.utils.images import Color
 from torchvision import transforms
 
+
 class RandomExpandRotation:
 
     def __init__(self, size, p=0.5, degrees=(0, 0), tile_size=40):
@@ -65,6 +66,15 @@ class RandomExpandRotation:
         fff = Image.fromarray(tile).resize(img.size)
         return Image.composite(img, fff, img).convert(mode)
 
+    def _to_rotate(self, img, degree):
+        if random.random() < 0.5:
+            fillcolor = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+            rotate_img = self._random_rotate(img, degree, fillcolor)
+        else:
+            rotate_img = self._random_rotate_random_tile(img, degree, self._color_tile, self._tile_size)
+
+        return self._resized(rotate_img)
+
     def __call__(self, *images):
         """
             img (PIL Image): Image to be transformed.
@@ -74,12 +84,6 @@ class RandomExpandRotation:
         """
         if random.random() < self._p:
             degree = random.uniform(*self._degrees)
-            if random.random() < 0.5:
-                fillcolor = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-                images = [self._random_rotate(img, degree, fillcolor) for img in images]
-            else:
-                images = [self._random_rotate_random_tile(img, degree, self._color_tile, self._tile_size) for img in images]
-
-            images = [self._resized(img) for img in images]
+            images = [self._to_rotate(img, degree) if img.mode != "I" else img for img in images]
 
         return images

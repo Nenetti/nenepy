@@ -97,6 +97,11 @@ class Color:
 
         return color_image / 255.0
 
+    @classmethod
+    def index_to_rgb(cls, index):
+        return cls._color_map[index]
+
+
     # ==============================================================================
     #
     #   Private Method

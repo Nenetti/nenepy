@@ -67,7 +67,6 @@ class WeaklySupervisedSegmentation(AbstractNetworkArchitecture):
         # ----- Forward Decoder (Convert feature to mask) ----- #
         H, W = x.shape[-2:]
         feature_maps = self.semantic_segmentation(x, return_features=True, output_size=(int(H // 4), int(W // 4)))
-
         background = torch.ones_like(feature_maps[:, :1])
         feature_maps = torch.cat([background, feature_maps], dim=1)
         masks = F.softmax(feature_maps, dim=1)
@@ -80,7 +79,7 @@ class WeaklySupervisedSegmentation(AbstractNetworkArchitecture):
         # ----- Classification ----- #
         loss_ngwp = self._normalized_global_weighted_pooling(features=reshape_features, masks=reshape_masks)
         loss_size_focal = self._size_focal_penalty(masks=reshape_masks, p=self.focal_p, lambda_=self.focal_lambda)
-        classification = loss_ngwp[:, 1:] + loss_size_focal[:, 1:]
+        classification = loss_ngwp + loss_size_focal
         if is_classification_only:
             return classification, feature_maps, self.upsampling_x4(masks)
 
@@ -173,12 +172,12 @@ class WeaklySupervisedSegmentation(AbstractNetworkArchitecture):
 
     @staticmethod
     def loss(classification, gt_labels, feature_maps=None, pseudo_gt=None, is_classification_only=False):
-        classification_loss = F.multilabel_soft_margin_loss(classification, gt_labels)
+        classification_loss = F.multilabel_soft_margin_loss(classification[:, 1:], gt_labels[:, 1:])
         # classification_loss = nn.MultiLabelSoftMarginLoss()(classification, gt_labels)
         if is_classification_only:
             return classification_loss
 
-        mask_loss = BalancedMaskLoss.forward(feature_maps, pseudo_gt, gt_labels, ignore_index=0)
+        mask_loss = BalancedMaskLoss.forward(feature_maps, pseudo_gt, gt_labels[:, 1:], ignore_index=0)
 
         return classification_loss, mask_loss
     #

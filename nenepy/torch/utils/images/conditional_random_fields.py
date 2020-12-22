@@ -31,19 +31,47 @@ class ConditionalRandomFields:
             torch.Tensor:   shape -> [C, H, W]
 
         """
-        image = image.permute(dims=(1, 2, 0)).type(torch.uint8).numpy()
-        mask_prob = mask_prob.numpy()
 
-        n_channels, height, width = mask_prob.shape
+        if len(image.shape) == 3:
+            image = image.permute(dims=(1, 2, 0)).type(torch.uint8).numpy()
+            mask_prob = mask_prob.numpy()
 
-        unary = unary_from_softmax(mask_prob)
-        unary = np.ascontiguousarray(unary)
+            n_channels, height, width = mask_prob.shape
 
-        d = dcrf.DenseCRF2D(width, height, n_channels)
+            unary = unary_from_softmax(mask_prob)
+            unary = np.ascontiguousarray(unary)
 
-        d.setUnaryEnergy(unary)
-        d.addPairwiseGaussian(sxy=3, compat=3)
-        d.addPairwiseBilateral(sxy=80, srgb=13, rgbim=np.copy(image, order="C"), compat=10)
-        q = d.inference(n_iteration)
+            d = dcrf.DenseCRF2D(width, height, n_channels)
 
-        return torch.from_numpy(np.array(q)).contiguous().view(size=(-1, height, width)).type(torch.float32)
+            d.setUnaryEnergy(unary)
+            d.addPairwiseGaussian(sxy=3, compat=3)
+            d.addPairwiseBilateral(sxy=80, srgb=13, rgbim=np.copy(image, order="C"), compat=10)
+            q = d.inference(n_iteration)
+
+            return torch.from_numpy(np.array(q)).contiguous().view(size=(-1, height, width)).type(torch.float32)
+
+        elif len(image.shape) == 4:
+            B, C, H, W = image.shape
+            output = torch.empty_like(mask_prob)
+            for i in range(B):
+                img = image[i].permute(dims=(1, 2, 0)).type(torch.uint8).numpy()
+                prob = mask_prob[i].numpy()
+
+                n_channels, height, width = mask_prob[i].shape
+
+                unary = unary_from_softmax(prob)
+                unary = np.ascontiguousarray(unary)
+
+                d = dcrf.DenseCRF2D(width, height, n_channels)
+
+                d.setUnaryEnergy(unary)
+                d.addPairwiseGaussian(sxy=3, compat=3)
+                d.addPairwiseBilateral(sxy=80, srgb=13, rgbim=np.copy(img, order="C"), compat=10)
+                q = d.inference(n_iteration)
+
+                output[i] = torch.from_numpy(np.array(q)).contiguous().view(size=(-1, height, width)).type(torch.float32)
+
+            return output
+
+        else:
+            raise ValueError()

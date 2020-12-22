@@ -13,7 +13,7 @@ from nenepy.utils.dictionary import ListDict
 
 class AbstractInterface(metaclass=ABCMeta):
 
-    def __init__(self, mode, model, logger, save_interval, save_multi_process=False, dataset_kwargs={}, dataloader_kwargs={}):
+    def __init__(self, mode, model, logger, save_interval, save_multi_process=False, n_processes=1):
         """
 
         Args:
@@ -32,7 +32,7 @@ class AbstractInterface(metaclass=ABCMeta):
 
         # ----- Log ----- #
         self.logger = logger
-        self.board_writer = TensorBoardWriter(log_dir=Path(logger.log_dir).joinpath(mode.name), multi_process=save_multi_process)
+        self.board_writer = TensorBoardWriter(log_dir=Path(logger.log_dir).joinpath(mode.name), multi_process=save_multi_process, n_processes=n_processes)
 
         # ----- etc ----- #
         self.mode = mode
@@ -45,10 +45,10 @@ class AbstractInterface(metaclass=ABCMeta):
         self.log_epoch_key = f"{mode.name}_NUM_EPOCH"
         self._init_log()
 
-        self._forward_pre_hooks = OrderedDict()
-        self._forward_hooks = OrderedDict()
-        self.register_forward_pre_hook(self._default_pre_hook)
-        self.register_forward_hook(self._default_hook)
+        # self._forward_pre_hooks = OrderedDict()
+        # self._forward_hooks = OrderedDict()
+        # self.register_forward_pre_hook(self._default_pre_hook)
+        # self.register_forward_hook(self._default_hook)
 
     def _init_log(self):
         if self.log_time_key not in self.logger:
@@ -70,24 +70,6 @@ class AbstractInterface(metaclass=ABCMeta):
     #
     # ==============================================================================
 
-    def register_forward_pre_hook(self, hook):
-        """
-        Args:
-            hook (function):
-
-        """
-        n_args = len(list(signature(hook).parameters))
-        self._forward_pre_hooks[id(hook)] = (n_args, hook)
-
-    def register_forward_hook(self, hook):
-        """
-        Args:
-            hook (function):
-
-        """
-        n_args = len(list(signature(hook).parameters))
-        self._forward_hooks[id(hook)] = (n_args, hook)
-
     def load_log(self):
         self.epoch = self.logger[self.log_epoch_key]
 
@@ -97,7 +79,7 @@ class AbstractInterface(metaclass=ABCMeta):
     #
     # ==============================================================================
 
-    def _default_pre_hook(self):
+    def _pre_process(self):
         self.epoch += 1
         if self.mode is Mode.TRAIN:
             self.model.train_mode()
@@ -108,7 +90,7 @@ class AbstractInterface(metaclass=ABCMeta):
 
         self.timer.start()
 
-    def _default_hook(self):
+    def _post_process(self):
         self.timer.stop()
         self.model.scheduler_step()
 
@@ -155,12 +137,6 @@ class AbstractInterface(metaclass=ABCMeta):
 
             self.board_writer.add_scalars(namespace=f"Loss_{self.mode.name}", graph_name=name, scalar_dict=scalar_values, step=epoch)
 
-    # def _output_each_class_loss(self, epoch, each_class_losses, class_names):
-    #     each_loss_dict = {}
-    #     for i, loss in enumerate(each_class_losses.tolist()):
-    #         each_loss_dict[class_names[i]] = loss / len(self.dataloader)
-    #     self.board_writer.add_scalars(namespace="Class_Loss", graph_name="Validation", scalar_dict=each_loss_dict, step=epoch)
-
     def _output_learning_rate(self, epoch):
         """
 
@@ -181,6 +157,12 @@ class AbstractInterface(metaclass=ABCMeta):
 
         self.board_writer.add_scalars(namespace="Summary", graph_name="Learning_Rate", scalar_dict=lr_dict, step=epoch)
 
+    def _output_metric(self, epoch, tag, metric_name, scalar):
+        self.board_writer.add_scalar(tag=tag, graph_name=f"{self.mode.name}/{metric_name}", scalar_value=scalar, step=epoch)
+
+    def _output_metrics(self, epoch, namespace, metric_name, scalar_dict):
+        self.board_writer.add_scalars(namespace=namespace, graph_name=f"{self.mode.name}/{metric_name}", scalar_dict=scalar_dict, step=epoch)
+
     # ==============================================================================
     #
     #   Special Attribute
@@ -188,33 +170,13 @@ class AbstractInterface(metaclass=ABCMeta):
     # ==============================================================================
 
     def __call__(self, *args, **kwargs):
-        for n_args, hook in self._forward_pre_hooks.values():
-            if n_args == 0:
-                hook()
-            else:
-                hook_out = hook(self, (args, kwargs))
-
-                if hook_out is None:
-                    continue
-                elif (isinstance(hook_out, tuple)) and (len(hook_out) == 2) and isinstance(hook_out[0], tuple) and isinstance(hook_out[1], dict):
-                    args, kwargs = hook_out
-                else:
-                    raise ValueError()
+        self._pre_process()
 
         output = self.forward_epoch(*args, **kwargs)
 
-        if not isinstance(output, tuple):
-            output = (output,)
-
-        for n_args, hook in self._forward_hooks.values():
-            if n_args == 0:
-                hook_out = hook()
-            else:
-                hook_out = hook(self, (args, kwargs), output)
-            if hook_out is not None:
-                output = hook_out
-
-        if len(output) == 1:
-            output = output[0]
+        self._post_process()
 
         return output
+
+    def wait_process_completed(self):
+        self.board_writer.wait_process_completed()
