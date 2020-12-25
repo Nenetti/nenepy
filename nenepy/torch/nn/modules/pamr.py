@@ -21,7 +21,7 @@ class PAMR(nn.Module):
         self.aff_m = LocalAffinityCopy(dilations)
         self.aff_std = LocalStDev(dilations)
 
-    def forward(self, x, mask):
+    def forward(self, mask, x):
         """
 
         Args:
@@ -32,8 +32,10 @@ class PAMR(nn.Module):
             torch.Tensor:
 
         """
+
         with torch.no_grad():
             x = F.interpolate(x, size=mask.size()[-2:], mode="bilinear", align_corners=True)
+
             x_std = self.aff_std(x)
 
             x = -self.aff_x(x) / (1e-8 + 0.1 * x_std)
