@@ -43,6 +43,7 @@ class ResNet(TorchResNet):
         self._default_initialize(block, layers, **kwargs)
 
         if pretrained_state_dict is not None:
+            print(f"{str(self.__class__.__name__)}: Load pretrained weight")
             self.load_state_dict(pretrained_state_dict, strict=True)
         else:
             is_train = True
@@ -60,11 +61,11 @@ class ResNet(TorchResNet):
         if self._is_feature_extraction:
             del self.avgpool, self.fc
 
-    # ==============================================================================
+    # ==================================================================================================
     #
     #   From torchvision's ResNet
     #
-    # ==============================================================================
+    # ==================================================================================================
 
     def _default_initialize(self, block, layers, num_classes=1000, zero_init_residual=False,
                             groups=1, width_per_group=64, replace_stride_with_dilation=None,
@@ -161,11 +162,11 @@ class ResNet(TorchResNet):
 
         return nn.Sequential(*layers)
 
-    # ==============================================================================
+    # ==================================================================================================
     #
     #   Custom Method
     #
-    # ==============================================================================
+    # ==================================================================================================
 
     def forward(self, x):
         if self._is_feature_extraction:
@@ -184,14 +185,8 @@ class ResNet(TorchResNet):
         x3 = self.layer3(x2)
         x4 = self.layer4(x3)
 
-        if self._is_feature_extraction:
-            return x0, x1, x2, x3, x4
+        return x0, x1, x2, x3, x4
 
-        x5 = self.avgpool(x4)
-        x5 = torch.flatten(x5, 1)
-        x5 = self.fc(x5)
-
-        return x5
 
     def train(self, mode=True):
         if mode:

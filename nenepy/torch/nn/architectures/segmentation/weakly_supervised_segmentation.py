@@ -42,11 +42,11 @@ class WeaklySupervisedSegmentation(AbstractNetworkArchitecture):
         self.focal_lambda = focal_lambda
         self.pseudo_lower = pseudo_lower
 
-    # ==============================================================================
+    # ==================================================================================================
     #
     #   Public Method
     #
-    # ==============================================================================
+    # ==================================================================================================
 
     def forward(self, x, x_for_pamr=None, label=None, is_classification_only=False, use_gt_label=False):
         """
@@ -102,11 +102,11 @@ class WeaklySupervisedSegmentation(AbstractNetworkArchitecture):
     def parameters_dict(self, base_lr, wd):
         return self.semantic_segmentation.parameters_dict(base_lr, wd)
 
-    # ==============================================================================
+    # ==================================================================================================
     #
     #   Private Method
     #
-    # ==============================================================================
+    # ==================================================================================================
 
     def _forward_pamr(self, image_raws, masks):
         """

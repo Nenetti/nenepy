@@ -29,6 +29,7 @@ class Block:
     weight_param_length = 0
     bias_param_length = 0
     train_length = 0
+    untrain_length = 0
 
     all_blocks = []
     ids = dict()
@@ -51,6 +52,8 @@ class Block:
         self.trained_bias_params = 0
         self.untrained_bias_params = 0
         self.duplication = False
+
+        self.is_training = False
 
         module_id = id(self.module)
         if module_id in self.ids:
@@ -77,6 +80,9 @@ class Block:
             self.trained_bias_params += n_params
         else:
             self.untrained_bias_params += n_params
+
+    def add_is_training(self, is_training):
+        self.is_training = is_training
 
     # Property
     @property
@@ -106,13 +112,19 @@ class Block:
 
     @property
     def is_trained(self):
-        is_train = self.is_trained_weight or self.is_trained_bias
+        is_train = (self.is_trained_weight or self.is_trained_bias) and self.is_training
         if is_train:
             return "✓"
         else:
             return ""
 
-    # String
+    @property
+    def is_untrained(self):
+        is_train = (self.is_trained_weight or self.is_trained_bias) and self.is_training
+        if not is_train:
+            return "✓"
+        else:
+            return ""
 
     @property
     def architecture_str(self):
@@ -200,6 +212,10 @@ class Block:
     @property
     def is_train_text(self):
         return f"{self.is_trained:^{self.train_length}}"
+
+    @property
+    def is_untrain_text(self):
+        return f"{self.is_untrained:^{self.untrain_length}}"
 
     @property
     def input_texts(self):
@@ -294,6 +310,7 @@ class Block:
         cls.weight_param_length = cls._get_max_weight_param_per_length()
         cls.bias_param_length = cls._get_max_bias_param_per_length()
         cls.train_length = cls._get_max_train_length()
+        cls.untrain_length = cls._get_max_untrain_length()
 
     @classmethod
     def _get_input_max_tensor_dims(cls):
@@ -429,6 +446,15 @@ class Block:
         max_length = len("Train")
         for block in cls.all_blocks:
             length = len(f"{block.is_trained}")
+            max_length = max(max_length, length)
+
+        return max_length
+
+    @classmethod
+    def _get_max_untrain_length(cls):
+        max_length = len("Untrain")
+        for block in cls.all_blocks:
+            length = len(f"{block.is_untrained}")
             max_length = max(max_length, length)
 
         return max_length
@@ -639,14 +665,14 @@ class Summary:
 
         return directories, append
 
-    def print_string(self, directory, input_text, output_text, weight_param_text, bias_param_text, param_per_text, is_train_text, is_boundary):
+    def print_string(self, directory, input_text, output_text, weight_param_text, bias_param_text, param_per_text, is_train_text, is_untrain_text, is_boundary):
 
         partition = "  │  "
         if is_boundary:
             partition = " -│- "
 
         print(
-            f"{directory}{partition}{input_text}{partition}{output_text}{partition}{weight_param_text}{partition}{bias_param_text}{partition}{param_per_text}{partition}{is_train_text}  │ "
+            f"{directory}{partition}{input_text}{partition}{output_text}{partition}{weight_param_text}{partition}{bias_param_text}{partition}{param_per_text}{partition}{is_train_text}{partition}{is_untrain_text}  │ "
         )
 
     @staticmethod
@@ -663,7 +689,9 @@ class Summary:
         bias_length = Block.bias_param_length
         param_per_length = Block.param_per_length
         train_length = Block.train_length
-        param_length = weight_length + bias_length + param_per_length + train_length + 15
+        untrain_length = Block.untrain_length
+
+        param_length = weight_length + bias_length + param_per_length + train_length + untrain_length + 20
 
         directory_empty = f"{' ' * architecture_length}"
         input_empty = f"{' ' * input_length}"
@@ -672,6 +700,7 @@ class Summary:
         bias_empty = f"{' ' * bias_length}"
         param_per_empty = f"{' ' * param_per_length}"
         train_empty = f"{' ' * train_length}"
+        untrain_empty = f"{' ' * untrain_length}"
         param_empty = f"{'-' * param_length}"
 
         architecture_title = f"{'Network Architecture':^{architecture_length}}"
@@ -682,8 +711,9 @@ class Summary:
         bias_title = f"{'Bias':^{bias_length}}"
         param_per_title = f"{'Total(%)':^{param_per_length}}"
         train_title = f"{'Train':^{train_length}}"
+        untrain_title = f"{'Untrain':^{untrain_length}}"
 
-        param_line = self.to_line("     ", weight_title, bias_title, param_per_title, train_title)
+        param_line = self.to_line("     ", weight_title, bias_title, param_per_title, train_title, untrain_title)
         border_line = self.to_line("==│==", '=' * architecture_length, '=' * input_length, '=' * output_length, '=' * param_length) + "==│"
         param_detail_line = self.to_line("  │  ", directory_empty, input_empty, output_empty, param_line) + "  │"
         param_line = self.to_line("  │  ", directory_empty, input_empty, output_empty, param_title) + "  │"
@@ -707,6 +737,7 @@ class Summary:
             bias_params = [root.bias_param_text]
             per_params = [root.param_per_text]
             is_trains = [root.is_train_text]
+            is_untrains = [root.is_untrain_text]
 
             is_boundaries = [False]
 
@@ -718,6 +749,7 @@ class Summary:
             bias_params += [" " * len(bias_params[0])] * (max_length - len(bias_params))
             per_params += [" " * len(per_params[0])] * (max_length - len(per_params))
             is_trains += [" " * len(is_trains[0])] * (max_length - len(is_trains))
+            is_untrains += [" " * len(is_untrains[0])] * (max_length - len(is_untrains))
 
             is_boundaries += [False] * (max_length - len(is_boundaries))
 
@@ -728,29 +760,30 @@ class Summary:
 
             if need_before_space:
                 d = f"{f'{append}│ ':<{architecture_length}}"
-                self.print_string(d, input_empty, output_empty, weight_empty, bias_empty, param_per_empty, train_empty, False)
+                self.print_string(d, input_empty, output_empty, weight_empty, bias_empty, param_per_empty, train_empty, untrain_empty, False)
 
             if need_before_boundary:
                 if root.depth != 0:
                     d = f"{f'{append}│    ':<{architecture_length}}"
                 else:
                     d = f"{f'{append}     ':<{architecture_length}}"
-                self.print_string(d, input_empty, output_empty, weight_empty, bias_empty, param_per_empty, train_empty, True)
+                self.print_string(d, input_empty, output_empty, weight_empty, bias_empty, param_per_empty, train_empty, untrain_empty, True)
 
             for i in range(len(directories)):
-                self.print_string(directories[i], inputs[i], outputs[i], weight_params[i], bias_params[i], per_params[i], is_trains[i], is_boundaries[i])
+                self.print_string(directories[i], inputs[i], outputs[i], weight_params[i], bias_params[i], per_params[i], is_trains[i], is_untrains[i],
+                                  is_boundaries[i])
 
             before_is_space = False
             before_is_boundary = False
             if need_boundary:
                 d = f"{new_append + '│    '}" if len(root.blocks) > 0 else f"{new_append + '     '}"
                 d = f"{d:<{architecture_length}}"
-                self.print_string(d, input_empty, output_empty, weight_empty, bias_empty, param_per_empty, train_empty, True)
+                self.print_string(d, input_empty, output_empty, weight_empty, bias_empty, param_per_empty, train_empty, untrain_empty, True)
                 before_is_boundary = True
 
             if need_space:
                 d = f"{new_append:<{architecture_length}}"
-                self.print_string(d, input_empty, output_empty, weight_empty, bias_empty, param_per_empty, train_empty, False)
+                self.print_string(d, input_empty, output_empty, weight_empty, bias_empty, param_per_empty, train_empty, untrain_empty, False)
                 before_is_space = True
 
             for i, block in enumerate(root.blocks):
@@ -859,11 +892,11 @@ class Summary:
         for module, count, in sort:
             print(count, str(module).split("'")[1])
 
-    # ==============================================================================
+    # ==================================================================================================
     #
     #   Hook
     #
-    # ==============================================================================
+    # ==================================================================================================
 
     def register_hook(self, module):
 
@@ -926,6 +959,8 @@ class Summary:
         if hasattr(module, "bias") and hasattr(module.bias, "size"):
             n_params = torch.prod(torch.LongTensor(list(module.bias.size()))).item()
             block.add_bias_params(n_params, module.bias.requires_grad)
+
+        block.add_is_training(module.training)
 
     @staticmethod
     def tensors_to_size_str(tensors):

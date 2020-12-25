@@ -3,7 +3,7 @@ from torch import nn
 from nenepy.torch.nn.architectures import AbstractNetworkArchitecture
 from nenepy.torch.nn.architectures.backbones import ResNeXt50_32x4d, ResNeXt101_32x8d, WideResNet50_2, WideResNet101_2
 from nenepy.torch.nn.architectures.backbones import ResNet50, ResNet18, ResNet34, ResNet101, ResNet152
-from nenepy.torch.nn.modules import GlobalCueInjection, StochasticGate, ASPP, DynamicUpsample
+from nenepy.torch.nn.modules import GlobalCueInjection, StochasticGate, ASPP, Upsample
 from nenepy.torch.nn.modules.concat import Concat
 
 backbone_list = [ResNet18, ResNet34, ResNet50, ResNet101, ResNet152, ResNeXt50_32x4d, ResNeXt101_32x8d, WideResNet50_2, WideResNet101_2]
@@ -11,11 +11,11 @@ backbone_list = [ResNet18, ResNet34, ResNet50, ResNet101, ResNet152, ResNeXt50_3
 
 class DeepLabV3Plus(AbstractNetworkArchitecture):
 
-    # ==============================================================================
+    # ==================================================================================================
     #
     #   Initialization
     #
-    # ==============================================================================
+    # ==================================================================================================
 
     def __init__(self, in_channels, out_channels, backbone=ResNet50, backbone_pretrained=True, sg_psi=0.3, backbone_kwargs={}):
         super(DeepLabV3Plus, self).__init__()
@@ -94,15 +94,15 @@ class DeepLabV3Plus(AbstractNetworkArchitecture):
         )
 
         self._post_processing = nn.Sigmoid() if out_channels == 1 else nn.Softmax(dim=1)
-        self._upsampling = DynamicUpsample(scale_factor=(4, 4), mode="bilinear", align_corners=True)
+        self._upsampling = Upsample(scale_factor=(4, 4), mode="bilinear", align_corners=True)
 
         self._add_training_modules(self._deconv)
 
-    # ==============================================================================
+    # ==================================================================================================
     #
     #   Public Method
     #
-    # ==============================================================================
+    # ==================================================================================================
 
     def forward(self, x, return_features=False, output_size=None):
         """
@@ -172,11 +172,11 @@ class DeepLabV3Plus(AbstractNetworkArchitecture):
 
         return groups
 
-    # ==============================================================================
+    # ==================================================================================================
     #
     #   Private Method
     #
-    # ==============================================================================
+    # ==================================================================================================
 
     def _forward_encoder(self, x):
         """

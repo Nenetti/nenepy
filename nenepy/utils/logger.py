@@ -22,76 +22,43 @@ class Logger(AttrDict):
 
         Args:
             log_dir (Path or str):
+            log_file (Path or str):
             is_load (bool):
 
         """
         super(Logger, self).__init__()
 
-        if (log_dir.exists()) and (not is_load):
-            shutil.rmtree(log_dir)
-
-        self._log_dir = Path(log_dir)
-        self._file_name = log_file
+        self._log_dir = log_dir
+        self._path = Path(log_dir).joinpath(log_file)
 
         if is_load:
-            if self._log_dir.exists():
+            if self._path.exists():
                 self.load()
             else:
-                raise FileNotFoundError(self._log_dir)
-
+                raise FileNotFoundError(self._path)
         else:
-            if not self._log_dir.exists():
-                self._log_dir.mkdir(parents=True)
+            if log_dir.exists():
+                shutil.rmtree(log_dir)
+
+            log_dir.mkdir(parents=True)
 
     @property
     def log_dir(self):
         return self._log_dir
 
-    @property
-    def file_name(self):
-        return self._file_name
-
-    # ==============================================================================
+    # ==================================================================================================
     #
     #   Public Method
     #
-    # ==============================================================================
+    # ==================================================================================================
+    def load(self):
+        if not self._path.exists():
+            raise FileNotFoundError()
 
-    def load(self, file_dir=None, file_name=None):
-        """
-
-        Args:
-            file_dir (Path or str):
-            file_name (Path or str):
-
-        """
-        # ----- Initialize ----- #
-        if file_dir is None:
-            file_dir = self._log_dir
-
-        if file_name is None:
-            file_name = self._file_name
-
-        # ----- Load ----- #
-        with open(Path(file_dir).joinpath(file_name), "r") as f:
+        with open(self._path, "r") as f:
             self.merge(AttrDict(yaml.load(f)))
 
-    def save(self, file_dir=None, file_name=None):
-        """
-
-        Args:
-            file_dir (Path or str):
-            file_name (Path or str):
-
-        """
-        # ----- Initialize ----- #
-        if file_dir is None:
-            file_dir = self._log_dir
-
-        if file_name is None:
-            file_name = self._file_name
-
-        # ----- Write and Output ----- #
-        with open(Path(file_dir).joinpath(file_name), "w") as f:
+    def save(self):
+        with open(self._path, "w") as f:
             out_dict = self._to_output_format(self)
             yaml.dump(out_dict, f, default_flow_style=False)

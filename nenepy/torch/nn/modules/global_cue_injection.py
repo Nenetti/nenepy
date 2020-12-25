@@ -9,22 +9,22 @@ class GlobalCueInjection(nn.Module):
 
     """
 
-    def __init__(self):
+    def __init__(self, NormLayer=nn.BatchNorm2d, ActivationLayer=nn.ReLU):
         super(GlobalCueInjection, self).__init__()
 
         self.conv_shallow = nn.Sequential(
             nn.Conv2d(in_channels=256, out_channels=256, kernel_size=1, bias=False),
-            nn.BatchNorm2d(256, affine=False)
+            NormLayer(256, affine=False)
         )
         self.conv_deep = nn.Sequential(
             nn.Conv2d(in_channels=256, out_channels=512, kernel_size=1, bias=False),
-            nn.BatchNorm2d(512),
-            nn.ReLU()
+            NormLayer(512),
+            ActivationLayer(),
         )
         self.conv_adain = nn.Sequential(
             nn.Conv2d(in_channels=256, out_channels=256, kernel_size=1, bias=False),
-            nn.BatchNorm2d(256),
-            nn.ReLU()
+            NormLayer(256),
+            ActivationLayer(),
         )
 
     def forward(self, shallow_x, deep_x):
