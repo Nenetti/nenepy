@@ -175,18 +175,16 @@ class ResNet(TorchResNet):
             return self._forward_impl(x)
 
     def _forward_feature_impl(self, x):
-        x0 = self.conv1(x)
-        x0 = self.bn1(x0)
-        x0 = self.relu(x0)
-        x0 = self.maxpool(x0)
+        x1 = self.conv1(x)
+        x1 = self.bn1(x1)
+        x1 = self.relu(x1)
 
-        x1 = self.layer1(x0)
-        x2 = self.layer2(x1)
-        x3 = self.layer3(x2)
-        x4 = self.layer4(x3)
+        x2 = self.layer1(self.maxpool(x1))
+        x3 = self.layer2(x2)
+        x4 = self.layer3(x3)
+        x5 = self.layer4(x4)
 
-        return x0, x1, x2, x3, x4
-
+        return x1, x2, x3, x4, x5
 
     def train(self, mode=True):
         if mode:

@@ -34,13 +34,17 @@ class Upsample(nn.Module):
 
         """
 
-        if (size is None) and (scale_factor is None):
-            size = self.size
-            scale_factor = self.scale_factor
-            return F.interpolate(x, size, scale_factor, self.mode, self.align_corners)
+        if size is not None:
+            if size == tuple(x.shape[-2:]):
+                return x
+            else:
+                return F.interpolate(x, size, None, self.mode, self.align_corners)
+
+        elif scale_factor is not None:
+            if scale_factor == 1:
+                return x
+            else:
+                return F.interpolate(x, None, scale_factor, self.mode, self.align_corners)
 
         else:
-            if ((size is None) and (scale_factor is not None)) or (size is not None) and (scale_factor is None):
-                return F.interpolate(x, size, scale_factor, self.mode, self.align_corners)
-            else:
-                raise ValueError
+            return F.interpolate(x, self.size, self.scale_factor, self.mode, self.align_corners)

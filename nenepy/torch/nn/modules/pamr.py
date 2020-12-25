@@ -32,26 +32,20 @@ class PAMR(nn.Module):
             torch.Tensor:
 
         """
-        mask = F.interpolate(mask, size=x.size()[-2:], mode="bilinear", align_corners=True)
+        with torch.no_grad():
+            x = F.interpolate(x, size=mask.size()[-2:], mode="bilinear", align_corners=True)
+            x_std = self.aff_std(x)
 
-        x_std = self.aff_std(x)
+            x = -self.aff_x(x) / (1e-8 + 0.1 * x_std)
+            x = x.mean(dim=1, keepdim=True)
+            x = F.softmax(x, dim=2)
 
-        x = -self.aff_x(x) / (1e-8 + 0.1 * x_std)
-        x = x.mean(dim=1, keepdim=True)
-        x = F.softmax(x, dim=2)
+            for _ in range(self.num_iter):
+                m = self.aff_m(mask)
+                mask = (m * x).sum(2)
 
-        for _ in range(self.num_iter):
-            m = self.aff_m(mask)
-            mask = (m * x).sum(2)
+            return mask
 
-        return mask
-
-
-# ==================================================================================================#####################
-#                                                                                                   #
-# Sub-Module Class                                                                                  #
-#                                                                                                   #
-# ==================================================================================================#####################
 
 class LocalAffinity(nn.Module):
 

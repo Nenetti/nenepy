@@ -113,7 +113,8 @@ class Block:
     @property
     def is_trained(self):
         is_train = (self.is_trained_weight or self.is_trained_bias) and self.is_training
-        if is_train:
+        has_param = self.n_params > 0
+        if is_train and has_param:
             return "✓"
         else:
             return ""
@@ -121,7 +122,8 @@ class Block:
     @property
     def is_untrained(self):
         is_train = (self.is_trained_weight or self.is_trained_bias) and self.is_training
-        if not is_train:
+        has_param = self.n_params > 0
+        if not is_train and has_param:
             return "✓"
         else:
             return ""
@@ -506,9 +508,12 @@ class InputSizeStr:
 
             else:
                 is_tensor = False
-                string = str(v.__class__).split(".")[-1].split("'")[0]
-                string = f"<class: {string}>"
-                coefficient = f"{len(tensor)}"
+                if isinstance(v, Number):
+                    string = str(tensor)
+                else:
+                    string = str(v.__class__.__name__)
+                    string = f"<class: {string}>"
+                    coefficient = f"{len(tensor)}"
 
         else:
             is_tensor = False
@@ -563,7 +568,7 @@ class InputSizeStr:
 
 class Summary:
 
-    def __init__(self, model, batch_size, device="cuda", sleep_time=0):
+    def __init__(self, model, batch_size=2, is_validate=False, device="cuda", sleep_time=0):
         """
 
         Args:
@@ -572,7 +577,6 @@ class Summary:
             device:
         """
         self.model = model.to(device)
-        self.model.train()
         self.batch_size = batch_size
         self.device = device
         self.summary = OrderedDict()
@@ -586,6 +590,10 @@ class Summary:
         self.n_blocks = 0
         self.ordered_blocks = []
         self.sleep_time = sleep_time
+        if is_validate:
+            self.model.eval()
+        else:
+            self.model.train()
 
     def __call__(self, input_size, *args, **kwargs):
         # multiple inputs to the network

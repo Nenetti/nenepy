@@ -8,10 +8,11 @@ class StochasticGate(nn.Module):
     深層特徴量と浅層特徴量を一定比率で混ぜる
     """
 
-    def __init__(self):
+    def __init__(self, p):
         super(StochasticGate, self).__init__()
+        self.p = p
 
-    def forward(self, x1, x2, p=0.3):
+    def forward(self, x1, x2):
         """
 
         Args:
@@ -23,13 +24,14 @@ class StochasticGate(nn.Module):
             torch.Tensor:
 
         """
+        self.p = 0
         if self.training:
-            r = (1 - p) * F.dropout(torch.ones_like(x1), p=p)
-            delta = 1 / (1 - p)
-            x = (r * (x1 - (p * x2)) * delta) + ((1 - r) * x2)
+            r = (1 - self.p) * F.dropout(torch.ones_like(x1), p=self.p)
+            delta = 1 / (1 - self.p)
+            x = (r * (x1 - (self.p * x2)) * delta) + ((1 - r) * x2)
 
         else:
-            x = ((1 - p) * x1) + (p * x2)
+            x = ((1 - self.p) * x1) + (self.p * x2)
 
         return x
 
