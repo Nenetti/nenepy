@@ -157,10 +157,10 @@ class AbstractInterface(metaclass=ABCMeta):
 
         self.board_writer.add_scalars(namespace="Summary", graph_name="Learning_Rate", scalar_dict=lr_dict, step=epoch)
 
-    def _output_metric(self, epoch, tag, metric_name, scalar):
+    def _output_scalar(self, epoch, tag, metric_name, scalar):
         self.board_writer.add_scalar(tag=tag, graph_name=f"{self.mode.name}/{metric_name}", scalar_value=scalar, step=epoch)
 
-    def _output_metrics(self, epoch, namespace, metric_name, scalar_dict):
+    def _output_scalar_dict(self, epoch, namespace, metric_name, scalar_dict):
         self.board_writer.add_scalars(namespace=namespace, graph_name=f"{self.mode.name}/{metric_name}", scalar_dict=scalar_dict, step=epoch)
 
     # ==================================================================================================
