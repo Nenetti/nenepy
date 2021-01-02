@@ -259,7 +259,24 @@ class TensorBoardWriter:
         else:
             self._writer.add_images(namespace, image_dict, step)
 
+    def is_all_process_completed(self):
+
+        if not self._multi_process:
+            return True
+
+        if self._queue.qsize() > 0:
+            return False
+
+        for i in range(self._n_processes):
+            if not self.is_process_availables[i]:
+                return False
+
+        return True
+
     def wait_all_process_completed(self):
+        if self.is_all_process_completed():
+            return
+
         if self._multi_process:
             for i in range(self._n_processes):
                 self.process_connections[i].send((Type.COMPLETE,))

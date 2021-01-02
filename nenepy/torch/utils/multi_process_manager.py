@@ -27,8 +27,11 @@ class MultiProcessManager:
         self._queue.put(task)
 
     def wait_process_completed(self):
-        while (self._n_available_processes != self._n_max_processes) or (self._queue.qsize() != 0):
+        while not self.is_all_process_completed():
             time.sleep(0.01)
+
+    def is_all_process_completed(self):
+        return (self._n_available_processes == self._n_max_processes) and (self._queue.qsize() == 0)
 
     def _loop_thread(self):
         while True:
