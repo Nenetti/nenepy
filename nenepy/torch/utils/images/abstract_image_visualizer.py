@@ -2,11 +2,10 @@ from collections import OrderedDict
 
 import PIL
 import numpy as np
-import torch
 from PIL import Image, ImageDraw, ImageFont
 from PIL.ImageDraw2 import Font
 
-from nenepy.torch.utils.images import Color
+from nenepy.torch.utils.images.color_numpy import Color
 
 
 class AbstractImageVisualizer:
@@ -39,8 +38,6 @@ class AbstractImageVisualizer:
         """
 
         # ----- Display Text ----- #
-        labels = labels.numpy()
-        score = score.numpy()
         gt_labels = np.array(class_names)[labels == 1]
         gt_indexes = np.where(labels == 1)[0]
         gt_predict_labels = [f"{class_names[k]}: {score[k]:.2f}" for k in gt_indexes]
@@ -112,7 +109,7 @@ class AbstractImageVisualizer:
             label_text_draw.text(xy=(x, y), text=text, fill=font_color, font=font)
 
         label_text_area = np.array(label_text_area, dtype=np.float32) / 255.0
-        return torch.from_numpy(label_text_area).permute(dims=(2, 0, 1))
+        return label_text_area.transpose((2, 0, 1))
 
     @classmethod
     def _make_grid_image(cls, image_dict, colors=None, max_n_column=-1, default_font=None, font_size=-1):
@@ -174,7 +171,7 @@ class AbstractImageVisualizer:
             row_keys = keys[si:ei]
             row_colors = colors[si:ei]
 
-            raw_image_area = torch.cat(row_images, dim=2)
+            raw_image_area = np.concatenate(row_images, axis=2)
 
             # ----- Create and Draw Information ----- #
             _, _, total_width = raw_image_area.shape
@@ -200,8 +197,8 @@ class AbstractImageVisualizer:
 
             # ----- Summarized Image and Information ----- #
             image_name_area = np.array(image_name_area, dtype=np.float32) / 255.0
-            image_name_area = torch.from_numpy(image_name_area).permute(dims=(2, 0, 1))
-            out_image[i] = torch.cat([image_name_area, raw_image_area], dim=1)
+            image_name_area = image_name_area.transpose((2, 0, 1))
+            out_image[i] = np.concatenate([image_name_area, raw_image_area], axis=1)
 
         return cls._auto_fitting_concat_images(out_image, dim=1)
 
@@ -289,20 +286,20 @@ class AbstractImageVisualizer:
             shape = images[0].shape
             is_same_shapes = [image.shape == shape for image in images[1:]]
             if False not in is_same_shapes:
-                return torch.cat(images, dim=1)
+                return np.concatenate(images, axis=1)
 
         # ----- Calc Image Shape ----- #
         target_shape = cls._calc_concat_shape(images, dim)
-        target_shape = torch.tensor(target_shape)
+        target_shape = np.array(target_shape)
 
         # ----- Concat Image (Overwrite) ----- #
-        out_image = torch.zeros(size=target_shape.tolist())
+        out_image = np.zeros(shape=target_shape.tolist())
         target_dim_start_pixel = 0
         for image in images:
 
             # ----- Get Different Shape Dimensions ----- #
-            image_shape = torch.tensor(image.shape)
-            different_size_dim = torch.where(target_shape != image_shape)[0]
+            image_shape = np.array(image.shape)
+            different_size_dim = np.where(target_shape != image_shape)[0]
 
             # ----- Get Overwrite (Copy) Area ----- #
             image_area = out_image
@@ -312,10 +309,15 @@ class AbstractImageVisualizer:
                 if d == dim:
                     start = target_dim_start_pixel
 
-                image_area = image_area.narrow(dim=d, start=start, length=length)
+                if d == 1:
+                    image_area = image_area[:, start:start + length]
+                elif d == 2:
+                    image_area = image_area[:, :, start:start + length]
+                else:
+                    raise ValueError()
 
             # ----- Overwrite Tensor (Copy) ----- #
-            image_area.copy_(image)
+            image_area[...] = image
             target_dim_start_pixel += image_shape[dim]
         return out_image
 
@@ -351,11 +353,11 @@ class AbstractImageVisualizer:
             list[int]:
 
         """
-        max_shape = torch.tensor(tensors[0].shape)
+        max_shape = np.array(tensors[0].shape)
 
         cat_dim_size = 0
         for tensor in tensors:
-            max_shape = torch.max(max_shape, torch.tensor(tensor.shape))
+            max_shape = np.maximum(max_shape, np.array(tensor.shape))
             cat_dim_size += tensor.shape[dim]
 
         max_shape[dim] = cat_dim_size
@@ -380,7 +382,7 @@ class AbstractImageVisualizer:
     def _gray_scale_to_rgb(image):
         n_channels = image.shape[0]
         if n_channels == 1:
-            return torch.cat([image, image, image], dim=0)
+            return np.concatenate([image, image, image], axis=0)
         elif n_channels == 3:
             return image
         else:
@@ -418,7 +420,8 @@ class AbstractImageVisualizer:
             [C, H, W] -> [3, H, W]
 
         """
-        alpha, indexes = torch.max(mask, dim=0)
+        alpha = np.max(mask, axis=0)
+        indexes = np.argmax(mask, axis=0)
 
         rgb_mask = Color.index_to_color(indexes) * alpha
 

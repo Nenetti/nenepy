@@ -28,7 +28,7 @@ class Config(AttrDict):
 
         """
         with open(yaml_file_path, "r") as f:
-            yaml_cfg = AttrDict(yaml.load(f))
+            yaml_cfg = AttrDict(yaml.safe_load(f))
         self._recursive_merge(self, yaml_cfg)
 
     def merge_cfg_from_cfg(self, cfg_other):

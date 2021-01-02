@@ -1,5 +1,4 @@
 import numpy as np
-import torch
 
 import matplotlib.pyplot as plt
 
@@ -40,8 +39,8 @@ class Color:
         """
         if len(image.shape) != 2:
             image = image.squeeze()
-        rgb = plt.get_cmap("jet")(image.numpy())[:, :, :3]
-        return torch.from_numpy(rgb).type(torch.float32).permute(dims=(2, 0, 1))
+        rgb = plt.get_cmap("jet")(image)[:, :, :3]
+        return rgb.astype(np.float32).transpose((2, 0, 1))
 
     @classmethod
     def to_color(cls, indexes):
@@ -62,7 +61,7 @@ class Color:
             [N] -> [N, 3]
 
         """
-        return torch.stack([cls._color_map[index] for index in indexes], dim=0)
+        return np.stack([cls._color_map[index] for index in indexes], axis=0)
 
     @classmethod
     def index_to_color(cls, image):
@@ -83,34 +82,23 @@ class Color:
             ([H, W] or [1, H, W]) -> [3, H, W]
 
         """
-        print("A1-0")
-
         if len(image.shape) != 2:
             image = image.squeeze()
 
-        print("A1-1")
-        print(image.shape)
-
         height, width = image.shape
-        print("A1-2", height, width)
-        print(torch.zeros(size=(height, width, 3), dtype=torch.uint8))
-        print("A1")
-        color_image = torch.zeros(size=(height, width, 3), dtype=torch.uint8)
-        print("A1-2")
-        labels = torch.unique(image)
-        print("A1-2")
+        color_image = np.zeros(shape=(height, width, 3), dtype=np.uint8)
+        labels = np.unique(image)
 
         for label in labels:
             color_image[image == label] = cls._color_map[label]
 
-        color_image = color_image.type(torch.float32).permute(dims=(2, 0, 1))
+        color_image = color_image.astype(np.float32).transpose((2, 0, 1))
 
         return color_image / 255.0
 
     @classmethod
     def index_to_rgb(cls, index):
         return cls._color_map[index]
-
 
     # ==================================================================================================
     #
@@ -129,7 +117,7 @@ class Color:
         for i in range(n):
             color_map[i] = cls._index2rgb(i)
 
-        return torch.from_numpy(color_map)
+        return color_map
 
     @staticmethod
     def _index2rgb(index):

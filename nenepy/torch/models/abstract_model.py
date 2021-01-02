@@ -28,20 +28,6 @@ class AbstractModel(metaclass=ABCMeta):
         self.weight_path = Path(weights_path)
         self.device = device
 
-        self._train_pre_hooks = OrderedDict()
-        self._train_hooks = OrderedDict()
-        self._validate_pre_hooks = OrderedDict()
-        self._validate_hooks = OrderedDict()
-        self._test_pre_hooks = OrderedDict()
-        self._test_hooks = OrderedDict()
-
-        self.register_train_pre_hook(self._to_device)
-        self.register_train_hook(self._to_detach_cpu)
-        self.register_validate_pre_hook(self._to_device)
-        self.register_validate_hook(self._to_detach_cpu)
-        self.register_test_pre_hook(self._to_device)
-        self.register_test_hook(self._to_detach_cpu)
-
     def _init_multi_gpu(self, n_gpus):
         if n_gpus > 1:
             self.network_model = nn.DataParallel(self.network_model).to(self.device)
@@ -118,30 +104,6 @@ class AbstractModel(metaclass=ABCMeta):
         if self.scheduler is not None:
             self.scheduler.step()
 
-    def register_train_pre_hook(self, hook):
-        n_args = len(list(signature(hook).parameters))
-        self._train_pre_hooks[id(hook)] = (n_args, hook)
-
-    def register_train_hook(self, hook):
-        n_args = len(list(signature(hook).parameters))
-        self._train_hooks[id(hook)] = (n_args, hook)
-
-    def register_validate_pre_hook(self, hook):
-        n_args = len(list(signature(hook).parameters))
-        self._validate_pre_hooks[id(hook)] = (n_args, hook)
-
-    def register_validate_hook(self, hook):
-        n_args = len(list(signature(hook).parameters))
-        self._validate_hooks[id(hook)] = (n_args, hook)
-
-    def register_test_pre_hook(self, hook):
-        n_args = len(list(signature(hook).parameters))
-        self._test_pre_hooks[id(hook)] = (n_args, hook)
-
-    def register_test_hook(self, hook):
-        n_args = len(list(signature(hook).parameters))
-        self._test_hooks[id(hook)] = (n_args, hook)
-
     def train_mode(self):
         self.mode = Mode.TRAIN
         self.network_model.train()
@@ -195,52 +157,58 @@ class AbstractModel(metaclass=ABCMeta):
         loss.backward()
         optimizer.step()
 
-    def _to_device(self, model, model_in):
+    def _to_device(self, *args, **kwargs):
 
         def recursive(arg):
             if isinstance(arg, torch.Tensor):
                 return arg.to(self.device)
-            else:
-                if isinstance(arg, tuple):
-                    arg = tuple([recursive(a) for a in arg])
-                    return arg
 
-                elif isinstance(arg, list):
-                    arg = [recursive(a) for a in arg]
-                    return arg
+            if isinstance(arg, tuple):
+                arg = (recursive(a) for a in arg)
+                return arg
 
-                elif isinstance(arg, dict):
-                    arg = dict([(key, recursive(value)) for key, value in arg.items()])
-                    return arg
+            if isinstance(arg, list):
+                arg = [recursive(a) for a in arg]
+                return arg
+
+            if isinstance(arg, dict):
+                arg = dict(((key, recursive(value)) for key, value in arg.items()))
+                return arg
 
             return arg
 
-        args, kwargs = recursive(model_in)
+        if len(args) > 0:
+            args = recursive(args)
+        if len(kwargs) > 0:
+            kwargs = recursive(kwargs)
 
         return args, kwargs
 
     @staticmethod
-    def _to_detach_cpu(model, model_in, model_out):
+    def _to_detach_cpu(args):
 
         def recursive(arg):
             if isinstance(arg, torch.Tensor):
                 return arg.detach().cpu()
-            else:
-                if isinstance(arg, tuple):
-                    arg = tuple([recursive(a) for a in arg])
-                    return arg
 
-                elif isinstance(arg, list):
-                    arg = [recursive(a) for a in arg]
-                    return arg
+            if isinstance(arg, tuple):
+                arg = tuple([recursive(a) for a in arg])
+                return arg
 
-                elif isinstance(arg, dict):
-                    arg = dict([(key, recursive(value)) for key, value in arg.items()])
-                    return arg
+            if isinstance(arg, list):
+                arg = [recursive(a) for a in arg]
+                return arg
+
+            if isinstance(arg, dict):
+                arg = dict([(key, recursive(value)) for key, value in arg.items()])
+                return arg
 
             return arg
 
-        return tuple(recursive(model_out))
+        if len(args) > 0:
+            args = recursive(args)
+
+        return args
 
     # ==================================================================================================
     #
@@ -249,48 +217,16 @@ class AbstractModel(metaclass=ABCMeta):
     # ==================================================================================================
 
     def __call__(self, *args, **kwargs):
+
+        args, kwargs = self._to_device(*args, **kwargs)
+
         if self.mode is Mode.TRAIN:
-            forward_step = self.train_step
-            forward_pre_hooks = self._train_pre_hooks
-            forward_hooks = self._train_hooks
-
+            output = self.train_step(*args, **kwargs)
         elif self.mode is Mode.VALIDATE:
-            forward_step = self.validate_step
-            forward_pre_hooks = self._validate_pre_hooks
-            forward_hooks = self._validate_hooks
-
+            output = self.validate_step(*args, **kwargs)
         else:
-            forward_step = self.test_step
-            forward_pre_hooks = self._test_pre_hooks
-            forward_hooks = self._test_hooks
+            output = self.test_step(*args, **kwargs)
 
-        for n_args, hook in forward_pre_hooks.values():
-            if n_args == 0:
-                hook()
-            else:
-                hook_out = hook(self, (args, kwargs))
-
-                if hook_out is None:
-                    continue
-                elif (isinstance(hook_out, tuple)) and (len(hook_out) == 2) and isinstance(hook_out[0], tuple) and isinstance(hook_out[1], dict):
-                    args, kwargs = hook_out
-                else:
-                    raise ValueError()
-
-        output = forward_step(*args, **kwargs)
-
-        if not isinstance(output, tuple):
-            output = (output,)
-
-        for n_args, hook in forward_hooks.values():
-            if n_args == 0:
-                hook()
-            else:
-                hook_out = hook(self, (args, kwargs), output)
-                if hook_out is not None:
-                    output = hook_out
-
-        if len(output) == 1:
-            output = output[0]
+        output = self._to_detach_cpu(output)
 
         return output
