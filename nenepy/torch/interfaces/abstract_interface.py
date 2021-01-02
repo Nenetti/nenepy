@@ -178,4 +178,4 @@ class AbstractInterface(metaclass=ABCMeta):
         return output
 
     def wait_process_completed(self):
-        self.board_writer.wait_process_completed()
+        self.board_writer.wait_all_process_completed()

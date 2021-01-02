@@ -1,7 +1,11 @@
+import os
+import time
 from enum import Enum, auto
 from multiprocessing.connection import Pipe
 from multiprocessing.context import Process
 from pathlib import Path
+from queue import Queue
+from threading import Thread
 
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
@@ -142,7 +146,6 @@ class _MultiProcessWriter(_SingleProcessWriter):
 
             elif data[0] is Type.COMPLETE:
                 self.subscriber.send("")
-                break
 
             self.flush()
 
@@ -162,24 +165,42 @@ class TensorBoardWriter:
 
         """
         Path(log_dir).mkdir(parents=True, exist_ok=True)
-        self.multi_process = multi_process
-        self.process_id = 0
-        self.n_processes = n_processes
+        self._multi_process = multi_process
+        self._process_id = 0
+        self._n_processes = n_processes
+        self._queue = Queue()
 
-        if self.multi_process:
-            self.publishers = [None] * n_processes
+        if self._multi_process:
+            self.process_connections = [None] * n_processes
+            self.is_process_availables = [True] * n_processes
             for i in range(n_processes):
-                self.publishers[i], subscriber = Pipe()
+                self.process_connections[i], subscriber = Pipe()
                 Process(target=launch, args=(log_dir, subscriber), daemon=True).start()
 
         else:
             self._writer = _SingleProcessWriter(log_dir)
 
-    def send(self, data_type, args):
-        self.publishers[self.process_id].send((data_type, *args))
-        self.process_id += 1
-        if self.process_id >= self.n_processes:
-            self.process_id = 0
+        self._thread = Thread(target=self._loop_thread, daemon=True)
+        self._thread.start()
+
+    def _loop_thread(self):
+        while True:
+            for i in range(self._n_processes):
+                if self.is_process_availables[i] and (self._queue.qsize() > 0):
+                    task = self._queue.get()
+                    self.process_connections[i].send(task)
+                    self.is_process_availables[i] = False
+                    Thread(target=self.wait_process_completed, args=(i,), daemon=True).start()
+
+            time.sleep(0.05)
+
+    def wait_process_completed(self, i):
+        self.process_connections[i].send((Type.COMPLETE,))
+        self.process_connections[i].recv()
+        self.is_process_availables[i] = True
+
+    def add_task(self, data_type, args):
+        self._queue.put((data_type, *args))
 
     def add_scalar(self, namespace, graph_name, scalar_value, step):
         """
@@ -191,8 +212,8 @@ class TensorBoardWriter:
             step (int):
 
         """
-        if self.multi_process:
-            self.send(Type.SCALAR, (namespace, graph_name, scalar_value, step))
+        if self._multi_process:
+            self.add_task(Type.SCALAR, (namespace, graph_name, scalar_value, step))
         else:
             self._writer.add_scalar(namespace, graph_name, scalar_value, step)
 
@@ -206,8 +227,8 @@ class TensorBoardWriter:
             step (int):
 
         """
-        if self.multi_process:
-            self.send(Type.SCALARS, (namespace, graph_name, scalar_dict, step))
+        if self._multi_process:
+            self.add_task(Type.SCALARS, (namespace, graph_name, scalar_dict, step))
         else:
             self._writer.add_scalars(namespace, graph_name, scalar_dict, step)
 
@@ -220,8 +241,8 @@ class TensorBoardWriter:
             step (int):
 
         """
-        if self.multi_process:
-            self.send(Type.IMAGE, (namespace, name, image, step))
+        if self._multi_process:
+            self.add_task(Type.IMAGE, (namespace, name, image, step))
         else:
             self._writer.add_image(namespace, name, image, step)
 
@@ -234,15 +255,15 @@ class TensorBoardWriter:
             step (int):
 
         """
-        if self.multi_process:
-            self.send(Type.IMAGES, (namespace, image_dict, step))
+        if self._multi_process:
+            self.add_task(Type.IMAGES, (namespace, image_dict, step))
         else:
             self._writer.add_images(namespace, image_dict, step)
 
-    def wait_process_completed(self):
-        if self.multi_process:
-            for i in range(self.n_processes):
-                self.publishers[i].send((Type.COMPLETE,))
-                self.publishers[i].recv()
+    def wait_all_process_completed(self):
+        if self._multi_process:
+            for i in range(self._n_processes):
+                self.process_connections[i].send((Type.COMPLETE,))
+                self.process_connections[i].recv()
 
         return
