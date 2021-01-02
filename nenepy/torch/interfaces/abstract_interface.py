@@ -7,6 +7,7 @@ import numpy as np
 
 from nenepy.torch.interfaces import Mode
 from nenepy.torch.utils.tensorboard import TensorBoardWriter
+from nenepy.torch.utils.tensorboard.multi_process_tensorboard_writer import MultiTaskTensorBoardWriter
 from nenepy.utils import Timer, Logger
 from nenepy.utils.dictionary import ListDict
 
@@ -32,7 +33,12 @@ class AbstractInterface(metaclass=ABCMeta):
 
         # ----- Log ----- #
         self.logger = logger
-        self.board_writer = TensorBoardWriter(log_dir=Path(logger.log_dir).joinpath(mode.name), multi_process=save_multi_process, n_processes=n_processes)
+        # self.board_writer = TensorBoardWriter(log_dir=Path(logger.log_dir).joinpath(mode.name), multi_process=save_multi_process, n_processes=n_processes)
+        # self.board_writer = TensorBoardWriter(log_dir=Path(logger.log_dir).joinpath(mode.name))
+        self.board_writer = MultiTaskTensorBoardWriter(
+            target_cls=TensorBoardWriter, args=(Path(logger.log_dir).joinpath(mode.name),), n_processes=n_processes
+        )
+        self.board_writer.start()
 
         # ----- etc ----- #
         self.mode = mode
@@ -178,4 +184,4 @@ class AbstractInterface(metaclass=ABCMeta):
         return output
 
     def wait_process_completed(self):
-        self.board_writer.wait_all_process_completed()
+        self.board_writer.wait_process_completed()
