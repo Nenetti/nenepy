@@ -177,11 +177,10 @@ class TensorBoardWriter:
                 self.process_connections[i], subscriber = Pipe()
                 Process(target=launch, args=(log_dir, subscriber), daemon=True).start()
 
+            self._thread = Thread(target=self._loop_thread, daemon=True)
+            self._thread.start()
         else:
             self._writer = _SingleProcessWriter(log_dir)
-
-        self._thread = Thread(target=self._loop_thread, daemon=True)
-        self._thread.start()
 
     def _loop_thread(self):
         while True:
