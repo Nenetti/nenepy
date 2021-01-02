@@ -274,12 +274,5 @@ class TensorBoardWriter:
         return True
 
     def wait_all_process_completed(self):
-        if self.is_all_process_completed():
-            return
-
-        if self._multi_process:
-            for i in range(self._n_processes):
-                self.process_connections[i].send((Type.COMPLETE,))
-                self.process_connections[i].recv()
-
-        return
+        while not self.is_all_process_completed():
+            time.sleep(0.01)
