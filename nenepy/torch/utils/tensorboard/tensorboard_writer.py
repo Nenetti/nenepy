@@ -23,6 +23,7 @@ class Type(Enum):
     SCALARS = auto()
     IMAGE = auto()
     IMAGES = auto()
+    IMAGES_WITH_FUNCTION = auto()
     COMPLETE = auto()
 
 
@@ -45,8 +46,6 @@ class TensorBoardWriter(MultiTaskProcess):
 
         self._log_dir = log_dir
         self._writer = None
-
-        self._image_queue = Queue()
 
     # ==================================================================================================
     #
@@ -101,33 +100,22 @@ class TensorBoardWriter(MultiTaskProcess):
         for name, image in image_dict.items():
             self.add_task(Type.IMAGES, (tag, name, image, step))
 
-    def add_images_with_process(self, func, args):
-        self._image_queue.put((Type.IMAGES, (func, args)))
-
-    def is_process_completed(self):
-        return (self._queue.qsize() == 0 and self._image_queue.qsize() == 0) and self.is_idling()
+    def add_images_with_process(self, func, args, tag, step):
+        self.add_task(Type.IMAGES_WITH_FUNCTION, ((func, args), (tag, step)))
 
     # ==================================================================================================
     #
     #   Other Process function
     #
     # ==================================================================================================
-    def process(self):
+    def on_start(self):
         self._writer = SummaryWriter(log_dir=self._log_dir)
-        while True:
-            if self._queue.qsize() > 0:
-                task = self._queue.get()
-                self._write(*task)
-                continue
 
-            if self._image_queue.qsize() > 0:
-                task = self._image_queue.get()
-                data_type, (func, args) = task
-                output = func(*args)
-                self._write(data_type, output)
-                continue
+    def on_exit(self):
+        self._writer.close()
 
-            time.sleep(0.01)
+    def process(self, *task):
+        self._write(*task)
 
     def _write(self, data_type, args):
         if data_type is Type.SCALAR:
@@ -141,6 +129,14 @@ class TensorBoardWriter(MultiTaskProcess):
 
         elif data_type is Type.IMAGES:
             self._add_images(*args)
+
+        elif data_type is Type.IMAGES_WITH_FUNCTION:
+            (func, func_args), (tag, step) = args
+            output = func(*func_args)
+            self._add_images(tag, output, step)
+
+        else:
+            raise ValueError()
 
         self._flush()
 

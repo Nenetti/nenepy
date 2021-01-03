@@ -33,12 +33,10 @@ class AbstractInterface(metaclass=ABCMeta):
 
         # ----- Log ----- #
         self.logger = logger
-        # self.board_writer = TensorBoardWriter(log_dir=Path(logger.log_dir).joinpath(mode.name), multi_process=save_multi_process, n_processes=n_processes)
-        # self.board_writer = TensorBoardWriter(log_dir=Path(logger.log_dir).joinpath(mode.name))
         self.board_writer = MultiTaskTensorBoardWriter(
-            target_cls=TensorBoardWriter, args=(Path(logger.log_dir).joinpath(mode.name),), n_processes=n_processes
+            target_cls=TensorBoardWriter, args=(Path(logger.log_dir).joinpath(mode.name),),
+            n_processes=n_processes, auto_start=True
         )
-        self.board_writer.start()
 
         # ----- etc ----- #
         self.mode = mode
@@ -50,11 +48,6 @@ class AbstractInterface(metaclass=ABCMeta):
         self.log_average_time_key = f"{mode.name}_AVERAGE_ELAPSED_TIME"
         self.log_epoch_key = f"{mode.name}_NUM_EPOCH"
         self._init_log()
-
-        # self._forward_pre_hooks = OrderedDict()
-        # self._forward_hooks = OrderedDict()
-        # self.register_forward_pre_hook(self._default_pre_hook)
-        # self.register_forward_hook(self._default_hook)
 
     def _init_log(self):
         if self.log_time_key not in self.logger:
@@ -185,3 +178,9 @@ class AbstractInterface(metaclass=ABCMeta):
 
     def wait_process_completed(self):
         self.board_writer.wait_process_completed()
+
+    def exit_with_wait_process_completed(self):
+        self.board_writer.close_with_waiting()
+
+    def kill_process(self):
+        self.board_writer.kill()

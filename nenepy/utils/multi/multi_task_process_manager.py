@@ -5,7 +5,7 @@ from nenepy.utils.multi.multi_task_process import MultiTaskProcess
 
 class MultiTaskProcessManager:
 
-    def __init__(self, target_cls, args=(), kwargs={}, n_processes=1):
+    def __init__(self, target_cls, args=(), kwargs={}, n_processes=1, auto_start=False):
         """
 
         Args:
@@ -25,6 +25,9 @@ class MultiTaskProcessManager:
 
         self._target_process = self._processes[0]
 
+        if auto_start:
+            self.start()
+
     # ==================================================================================================
     #
     #   Pubic function
@@ -38,6 +41,10 @@ class MultiTaskProcessManager:
         self._target_process.add_task(*args)
         self._change_next_process()
 
+    def close(self):
+        for process in self._processes:
+            process.close()
+
     def wait_process_completed(self):
         while not self.is_processes_completed():
             time.sleep(0.1)
@@ -48,6 +55,14 @@ class MultiTaskProcessManager:
                 return False
 
         return True
+
+    def close_with_waiting(self):
+        for process in self._processes:
+            process.close_with_waiting()
+
+    def kill(self):
+        for process in self._processes:
+            process.close()
 
     # ==================================================================================================
     #

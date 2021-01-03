@@ -7,8 +7,8 @@ from nenepy.utils.multi.multi_task_process_manager import MultiTaskProcessManage
 
 class MultiTaskTensorBoardWriter(MultiTaskProcessManager):
 
-    def add_images_with_process(self, func, args):
-        self._target_process.add_images_with_process(func, args)
+    def add_images_with_process(self, func, args, tag, step):
+        self.add_task(Type.IMAGES_WITH_FUNCTION, ((func, args), (tag, step)))
         self._change_next_process()
 
     def add_scalar(self, namespace, graph_name, scalar_value, step):
@@ -22,6 +22,7 @@ class MultiTaskTensorBoardWriter(MultiTaskProcessManager):
 
         """
         self.add_task(Type.SCALAR, (namespace, graph_name, scalar_value, step))
+        self._change_next_process()
 
     def add_scalars(self, namespace, graph_name, scalar_dict, step):
         """
@@ -34,6 +35,7 @@ class MultiTaskTensorBoardWriter(MultiTaskProcessManager):
 
         """
         self.add_task(Type.SCALARS, (namespace, graph_name, scalar_dict, step))
+        self._change_next_process()
 
     def add_image(self, namespace, name, image, step):
         """
@@ -46,6 +48,7 @@ class MultiTaskTensorBoardWriter(MultiTaskProcessManager):
 
         """
         self.add_task(Type.IMAGE, (namespace, name, image, step))
+        self._change_next_process()
 
     def add_images(self, tag, image_dict, step):
         """
@@ -58,3 +61,4 @@ class MultiTaskTensorBoardWriter(MultiTaskProcessManager):
         """
         for name, image in image_dict.items():
             self.add_task(Type.IMAGES, (tag, name, image, step))
+            self._change_next_process()
