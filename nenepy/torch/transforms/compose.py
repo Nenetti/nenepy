@@ -43,4 +43,5 @@ class Compose(transforms.Compose):
                 indexes[index] = i
                 tensors[index] = image
                 index += 1
-        return indexes[:index + 1], tensors[:index + 1]
+
+        return indexes[:index], tensors[:index]

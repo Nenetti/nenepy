@@ -52,7 +52,10 @@ class ListDict(AttrDict):
     #
     # ==================================================================================================
     def _add_value(self, key, value):
-        self[key].append(value)
+        if key in self:
+            self[key].append(value)
+        else:
+            self[key] = [value]
 
     def _set_value(self, key, value):
         index = self._size_dict[key]
@@ -97,3 +100,10 @@ class ListDict(AttrDict):
 
     def items(self):
         return dict(((key, value) for key, value in super(ListDict, self).items() if key not in self.EXCLUDES)).items()
+
+    def merge(self, b):
+        for key, value in b.items():
+            if key in self:
+                self[key].extend(value)
+            else:
+                self[key] = value

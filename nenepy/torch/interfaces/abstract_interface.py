@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 
 from nenepy.torch.interfaces import Mode
+from nenepy.torch.utils.checkpoint import CheckPoint
 from nenepy.torch.utils.tensorboard import TensorBoardWriter
 from nenepy.torch.utils.tensorboard.multi_process_tensorboard_writer import MultiTaskTensorBoardWriter
 from nenepy.utils import Timer, Logger
@@ -14,7 +15,7 @@ from nenepy.utils.dictionary import ListDict
 
 class AbstractInterface(metaclass=ABCMeta):
 
-    def __init__(self, mode, model, logger, save_interval, save_multi_process=False, n_processes=1):
+    def __init__(self, mode, model, logger, save_interval, save_multi_process=False):
         """
 
         Args:
@@ -35,8 +36,9 @@ class AbstractInterface(metaclass=ABCMeta):
         self.logger = logger
         self.board_writer = MultiTaskTensorBoardWriter(
             target_cls=TensorBoardWriter, args=(Path(logger.log_dir).joinpath(mode.name),),
-            n_processes=n_processes, auto_start=True
+            n_processes=1, auto_start=True
         )
+        self.checkpoint = CheckPoint(root_dir=Path(logger.log_dir).joinpath("checkpoint"), model=self.model, optimizer=self.model.optimizer, n_saves=5)
 
         # ----- etc ----- #
         self.mode = mode
@@ -71,6 +73,13 @@ class AbstractInterface(metaclass=ABCMeta):
 
     def load_log(self):
         self.epoch = self.logger[self.log_epoch_key]
+
+    def load_checkpoint(self):
+        # self.checkpoint.
+        pass
+
+    def add_checkpoint(self, epoch, score):
+        self.checkpoint.add_checkpoint(epoch, score)
 
     # ==================================================================================================
     #
@@ -133,7 +142,7 @@ class AbstractInterface(metaclass=ABCMeta):
                 "min": float(np.min(value))
             }
 
-            self.board_writer.add_scalars(namespace=f"Loss_{self.mode.name}", graph_name=name, scalar_dict=scalar_values, step=epoch)
+            self.board_writer.add_scalars(namespace=f"{self.mode.name} Loss", graph_name=name, scalar_dict=scalar_values, step=epoch)
 
     def _output_learning_rate(self, epoch):
         """
@@ -155,12 +164,6 @@ class AbstractInterface(metaclass=ABCMeta):
 
         self.board_writer.add_scalars(namespace="Summary", graph_name="Learning_Rate", scalar_dict=lr_dict, step=epoch)
 
-    def _output_scalar(self, epoch, namespace, metric_name, scalar):
-        self.board_writer.add_scalar(namespace=namespace, graph_name=f"{self.mode.name}/{metric_name}", scalar_value=scalar, step=epoch)
-
-    def _output_scalar_dict(self, epoch, namespace, metric_name, scalar_dict):
-        self.board_writer.add_scalars(namespace=namespace, graph_name=f"{self.mode.name}/{metric_name}", scalar_dict=scalar_dict, step=epoch)
-
     # ==================================================================================================
     #
     #   Special Attribute
@@ -177,7 +180,10 @@ class AbstractInterface(metaclass=ABCMeta):
         return output
 
     def wait_process_completed(self):
+        t = Timer()
         self.board_writer.wait_process_completed()
+        t.stop()
+        print(f"Wait Process Completed Time: {t.elapsed_time:.3f}")
 
     def exit_with_wait_process_completed(self):
         self.board_writer.close_with_waiting()

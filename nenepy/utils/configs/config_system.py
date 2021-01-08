@@ -76,3 +76,27 @@ class Config(AttrDict):
                 cls._recursive_merge(main_cfg[key], value, hierarchy=".".join([hierarchy, key]))
             else:
                 main_cfg[key] = value
+
+    def __repr__(self):
+        def recur(key, value, depth=0):
+            if isinstance(value, dict):
+                lines = [f"{'':>{depth * 4}}{key}:"]
+                for k, v in value.items():
+                    l = recur(k, v, depth + 1)
+                    if isinstance(l, list):
+                        lines.extend(l)
+                    else:
+                        lines.append(l)
+                return lines
+            else:
+                return f"{'':>{depth * 4}}{key}: {value}"
+
+        lines = []
+        for key, value in self.items():
+            l = recur(key, value)
+            if isinstance(l, list):
+                lines.extend(l)
+            else:
+                lines.append(l)
+
+        return "\n".join(lines)

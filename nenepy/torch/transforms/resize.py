@@ -25,5 +25,4 @@ class Resize(transforms.Resize):
         Returns:
             PIL Image: Randomly cropped and resized image.
         """
-
         return (self.resize(img, self.size, self.interpolation) for img in images)
