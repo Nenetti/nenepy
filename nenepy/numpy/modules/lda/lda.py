@@ -1,14 +1,10 @@
-# coding=utf-8
-import os
-import sys
-import time
-
 import numpy as np
+import torch
 from scipy.special import psi
+from torch.distributions import Categorical, Dirichlet
+from tqdm import tqdm
 
-import collections
-
-from nenepy.numpy.distribution import Categorical
+EPS = np.finfo(np.float).eps
 
 
 class LDA(object):
@@ -22,27 +18,32 @@ class LDA(object):
 
         パラメータ:
 
-            D(int):             ドキュメント数
-            V(int):             全ドキュメントの中で現れる単語の種類数
-            K(int):             トピック数
-            N(np.ndarray):      Shape = N       各ドキュメントの単語数
-            N_d(int):           ドキュメントdに含まれる単語数
+            D (int):                ドキュメント数
+            V (int):                全ドキュメントの中で現れる単語の種類数
+            K (int):                トピック数
+            N (np.ndarray):         各ドキュメントの単語数
+                Shape = N
+            N_d (int):              ドキュメントdに含まれる単語数
 
-            w(np.ndarray):      Shape = (D, N)  各ドキュメントの全単語の集合
-            w_d(np.ndarray):    Shape = N       ドキュメントdの全語群
-            w_dn(int):                          ドキュメントdのn番目の単語
+            w (np.ndarray):         各ドキュメントの全単語の集合
+                Shape = (D, N)
+            w_d (np.ndarray):       ドキュメントdの全語群
+                Shape = N
+            w_dn (int):             ドキュメントdのn番目の単語
 
-            z(np.ndarray):      Shape = (D, N)  各ドキュメントの各単語のトピック
-            z_d(np.ndarray):    Shape = N       ドキュメントdの各単語のトピック
-            z_dn(int):                          ドキュメントdのn番目の単語のトピック
+            z (list[np.ndarray]):   各ドキュメントの各単語のトピック
+                Shape = (D, N)
+            z_d (np.ndarray):       ドキュメントdの各単語のトピック
+                Shape = N
+            z_dn (int):             ドキュメントdのn番目の単語のトピック
 
-            N_dk(np.ndarray):   ドキュメントdでトピックkが割り当てられた単語数
+            N_dk (np.ndarray):      ドキュメントdでトピックkが割り当てられた単語数
 
-            N_k(np.ndarray):    ドキュメント集合全体でトピックkが割り当てられた単語数
-            N_kv(np.ndarray):   ドキュメント集合全体でトピックkが割り当てられた語彙vの数
+            N_k (np.ndarray):       ドキュメント集合全体でトピックkが割り当てられた単語数
+            N_kv (np.ndarray):      ドキュメント集合全体でトピックkが割り当てられた語彙vの数
 
-            θ_d(np.ndarray):    ドキュメントdでトピックkが割り当てられる確率
-            φ_kv(np.ndarray):   トピックkのとき語彙vが生成される確率
+            θ_dk (np.ndarray):      ドキュメントdでトピックkが割り当てられる確率
+            φ_kv (np.ndarray):      トピックkのとき語彙vが生成される確率
 
 
         ハイパーパラメータ:
@@ -52,7 +53,7 @@ class LDA(object):
 
     """
 
-    def __init__(self, data, alpha=0.1, beta=0.01, n_topic=20, is_train_hyperparameter=False, save_path="./result"):
+    def __init__(self, data, alpha=0.1, beta=0.01, n_topic=100, is_train_hyperparameter=False, save_path="./result"):
         """
 
         Args:
@@ -62,21 +63,21 @@ class LDA(object):
 
         self.D, self.V = data.shape
         self.K = n_topic
-        self.N = data.sum(axis=1)
+        self.N_d = data.sum(axis=1)
 
         self.w = self.bag_of_words_to_sentence(data=data)
 
-        self.z = [np.full(shape=self.N[d], fill_value=-1, dtype=int) for d in range(self.D)]
+        self.z = [np.full(shape=self.N_d[d], fill_value=-1, dtype=int) for d in range(self.D)]
 
-        self.n_topics_of_document = np.zeros(shape=(self.D, self.K), dtype=int)
+        self.N_dk = np.zeros(shape=(self.D, self.K), dtype=int)
         self.N_k = np.zeros(shape=self.K, dtype=int)
-        self.n_topics_of_word = np.zeros(shape=(self.K, self.V), dtype=int)
+        self.N_kv = np.zeros(shape=(self.K, self.V), dtype=int)
 
         self.theta = np.zeros(shape=(self.D, self.K))
         self.phi = np.zeros(shape=(self.K, self.V), dtype=int)
 
-        self.alpha = np.full(shape=n_topic, fill_value=alpha)
-        self.beta = np.full(shape=self.V, fill_value=beta)
+        self.alpha = np.full(shape=n_topic, fill_value=float(alpha))
+        self.beta = np.full(shape=self.V, fill_value=float(beta))
 
         self.ari = []
         self.save_path = save_path
@@ -88,67 +89,43 @@ class LDA(object):
     #   Public Method
     #
     # ==================================================================================================
-    def gibbs_sampling(self, iteration, interval):
+    def gibbs_sampling(self, epoch):
         """
         ギブスサンプリング(メイン処理)
 
         Args:
-            iteration(int): 試行回数
-            interval(int):  データを保存する間隔
+            epoch(int): 試行回数
 
         """
-        epoch = iteration // interval
+        for _ in tqdm(range(epoch), ascii=True, leave=False):
+            self._gibbs_sampling()
 
-        for i in range(epoch):
-            start = time.time()
-            for b in range(interval):
-                for d in range(self.D):
-                    for n in range(self.N[d]):
-                        self._gibbs_sampling_of_words(d, n)
+    def _gibbs_sampling(self):
+        for d in range(self.D):
+            for n in range(self.N_d[d]):
+                w_dn = self.w[d][n]
+                z_dn = self.z[d][n]
 
-                # ハイパーパラメータを更新(学習モード時のみ)
-                if self.train_mode:
-                    self.alpha = self._update_alpha(alpha=self.alpha, D=self.D, N_dk=self.n_topics_of_document, N_d=self.N)
-                    self.beta = self._update_beta(beta=self.beta, K=self.K, N_kv=self.n_topics_of_word, N_k=self.N_k)
+                if z_dn != -1:
+                    self.N_dk[d][z_dn] -= 1
+                    self.N_kv[z_dn][w_dn] -= 1
+                    self.N_k[z_dn] -= 1
 
-            # print(self.beta)
-            elapsed_time = time.time() - start
-            self.phi = np.argmax(self.theta, axis=1)
-            print("\nIteration: {}, Time: {:.2f}s({:.2f}s/iter)".format((i + 1) * interval, elapsed_time, elapsed_time / interval))
-            # self._save_result()
-            # print(self.topic, np.unique(self.topic))
+                self.theta[d] = self._calc_topic_probability(
+                    alpha=self.alpha, beta=self.beta, N_dk=self.N_dk, N_kv=self.N_kv, N_k=self.N_k, w_dn=w_dn, d=d
+                )
 
-        # Plot().plot_theta(self.D, self.K, self.theta)
-        # b = self._topic_to_bag_of_words(self.w_dn, self.z_dn, self.D, self.V)
-        # print(b)
+                updated_z_dn = self._sampling_topic_from_categorical(self.theta[d])
 
-    def _gibbs_sampling_of_words(self, d, n):
-        w_dn = self.w[d][n]
-        z_dn = self.z[d][n]
+                self.N_dk[d][updated_z_dn] += 1
+                self.N_kv[updated_z_dn][w_dn] += 1
+                self.N_k[updated_z_dn] += 1
 
-        if z_dn != -1:
-            self.n_topics_of_document[d][z_dn] -= 1
-            self.n_topics_of_word[z_dn][w_dn] -= 1
-            self.N_k[z_dn] -= 1
+                self.z[d][n] = updated_z_dn
 
-        # サンプリング確率を計算
-        self.theta[d] = self._calc_topic_probability(
-            alpha=self.alpha, beta=self.beta, N_dk=self.n_topics_of_document, N_kv=self.n_topics_of_word, N_k=self.N_k, w_dn=w_dn, d=d
-        )
-
-        # トピックをサンプリング(トピックの更新)
-        updated_z_dn = self._sampling_topic_from_categorical(self.theta[d])
-
-        # 更新したトピックで以下の処理を行う
-        # 1. ドキュメント(d番目)内における、トピック(z_dn)の出現数のカウントを1増やす
-        # 2. ドキュメント全体で、単語(w_dn)の内、トピック(z_dn)が割り当てられた単語数のカウントを1増やす
-        # 3. ドキュメント全体で、トピック(z_dn)が割り当てられた単語数のカウントを1増やす
-        self.n_topics_of_document[d][updated_z_dn] += 1
-        self.n_topics_of_word[updated_z_dn][w_dn] += 1
-        self.N_k[updated_z_dn] += 1
-
-        # 更新したトピックを反映
-        self.z[d][n] = updated_z_dn
+        if self.train_mode:
+            self.alpha = self._update_alpha(alpha=self.alpha, D=self.D, N_dk=self.N_dk, N_d=self.N_d)
+            self.beta = self._update_beta(beta=self.beta, K=self.K, N_kv=self.N_kv, N_k=self.N_k)
 
     # ==================================================================================================
     #
@@ -217,13 +194,15 @@ class LDA(object):
         N_dk_dn = N_dk[d]
         N_kw_dn_dn = N_kv[:, w_dn]
         N_k_dn = N_k
-        a = N_dk_dn + alpha
-        b = N_kw_dn_dn + beta[w_dn]
-        c = N_k_dn + beta.sum()
-        p = a * (b / c)
-        vector = np.array(p)
+        p = (N_dk_dn + alpha) * (N_kw_dn_dn + beta[w_dn]) / (N_k_dn + beta.sum())
+        return p / p.sum()
 
-        return vector / vector.sum()
+    @staticmethod
+    def _calc_theta(N_dk, alpha, N_d, K, D):
+        return np.array([(N_dk[d] + alpha) / (N_d[d] + (alpha * K)) for d in range(D)])
+
+    def calc_phi(self):
+        return np.array([(self.N_kv[k] + self.beta) / (self.N_k[k] + (self.beta * self.V)) for k in range(self.K)])
 
     @classmethod
     def _update_alpha(cls, alpha, D, N_dk, N_d):
@@ -251,8 +230,7 @@ class LDA(object):
             # 1. ディガンマ関数は0でマイナス無限大に発散するため、非常に小さい値を入れると Nan や Infinite が発生する
             # 2. N_dk[d]が0のとき計算式として0になるが、場合によって計算結果の誤差によってマイナス値が発生する (α は必ず正の実数値)
             a[(np.isnan(a)) | (np.isinf(a)) | (a < 0)] = 0
-
-        return alpha * (a / b)
+        return alpha * (a / b) + EPS
 
     @classmethod
     def _update_beta(cls, beta, K, N_kv, N_k):
@@ -282,52 +260,6 @@ class LDA(object):
 
         return beta * (a / b)
 
-    def _save_result(self):
-        """
-        各種パラメータを保存
-
-        """
-        if not os.path.exists(self.save_path):
-            os.mkdir(self.save_path)
-
-        alpha_path = os.path.join(self.save_path, "alpha.txt")
-        beta_path = os.path.join(self.save_path, "beta.txt")
-        theta_path = os.path.join(self.save_path, "theta.txt")
-        z_dn_path = os.path.join(self.save_path, "z_dn.txt")
-        N_dk_path = os.path.join(self.save_path, "N_dk.txt")
-        N_k_path = os.path.join(self.save_path, "N_k.txt")
-        N_kv_path = os.path.join(self.save_path, "N_kv.txt")
-        z_dn_5_path = os.path.join(self.save_path, "z_dn_5.txt")
-        topic_path = os.path.join(self.save_path, "topic.txt")
-        ari_path = os.path.join(self.save_path, "ARI.txt")
-
-        array = np.zeros(shape=(self.D, 5), dtype=int) - 1
-        topics = set()
-        for d in range(self.D):
-            z_dn = self.z[d]
-            c = collections.Counter(z_dn).most_common(5)
-            topics = topics.union(set(z_dn))
-            for i in range(len(c)):
-                array[d][i] = c[i][0]
-        topics = np.array(sorted(list(topics)), dtype=int)
-
-        np.savetxt(z_dn_5_path, array, fmt="%d")
-        np.savetxt(topic_path, topics, fmt="%d")
-        np.savetxt(alpha_path, self.alpha)
-        np.savetxt(beta_path, self.beta)
-        np.savetxt(theta_path, self.theta)
-        np.savetxt(z_dn_path, self.z, fmt="%d")
-        np.savetxt(N_dk_path, self.n_topics_of_document, fmt="%d")
-        np.savetxt(N_k_path, self.N_k, fmt="%d")
-        np.savetxt(N_kv_path, self.n_topics_of_word, fmt="%d")
-        np.savetxt(ari_path, self.ari)
-
-    def _change_train_mode(self):
-        self.train_mode = True
-
-    def _change_eval_mode(self):
-        self.train_mode = False
-
     @staticmethod
     def _sampling_topic_from_categorical(pi):
         """
@@ -340,8 +272,12 @@ class LDA(object):
             int:    サンプリングされたトピックのID
 
         """
-        vector = Categorical.sampling(pi=pi)
-        return np.where(vector == 1)[0][0]
+        return Categorical(torch.from_numpy(pi)).sample().numpy().item()
+
+    @staticmethod
+    def dirichlet(alpha):
+        return Dirichlet(torch.from_numpy(alpha)).sample((1000,)).mean(0).numpy()
+        # return Dirichlet(torch.from_numpy(alpha)).sample().numpy()
 
     @staticmethod
     def _digamma(z):
