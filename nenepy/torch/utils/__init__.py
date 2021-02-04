@@ -1,1 +1,1 @@
-from .torchsummary import Summary
+from .summary import Summary

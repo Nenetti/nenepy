@@ -1,49 +1,65 @@
-# import torch
-# from nenepy.torch.losses.distributions import KullbackLeibler
-# from nenepy.torch.losses.distributions import E
-# from nenepy.torch.losses.distributions import Log
-# from torch.distributions import Normal, Bernoulli
-# import numpy as np
-#
-# loc = np.zeros(shape=10, dtype=np.float32)
-# scale = np.ones(shape=10, dtype=np.float32)
-#
-# # loc2 = np.random.uniform(0, 1, size=10)
-# # scale2 = np.random.uniform(0, 1, size=10)
-# loc2 = np.ones(shape=10, dtype=np.float32)
-# scale2 = np.ones(shape=10, dtype=np.float32)
-#
-# p = Normal(loc=torch.from_numpy(loc), scale=torch.from_numpy(scale))
-# q = Normal(loc=torch.from_numpy(loc2), scale=torch.from_numpy(scale2))
-# p1 = Bernoulli(torch.from_numpy(np.random.uniform(0, 1, (3, 256, 256))))
-# p2 = Bernoulli(torch.from_numpy(np.random.uniform(0, 1, (3, 256, 256))))
-# reconst = E(q=p2, p=Log(p1))
-# # print(reconst())
-#
-# a = torch.ones((2, 3, 4, 5, 6))
-# print(torch.mean(a, dim=[1,2]))
-# # loss = (KullbackLeibler(p, q) - E(q=q, p=Log(p)))
-# # loss = (kl * 5) - 1 + 2
-# # loss = -kl - reconst
-#
-# # print(loss())
-# # e1 = torch.exp(e)
-# # e2 = torch.log(e1)
-# # print(kl)
-# # print(e1)
-# # print(e2)
-# # print(kl)
+from pathlib import Path
+import numpy as np
 import torch
+from PIL import Image
+from torchvision.models.detection.faster_rcnn import fasterrcnn_resnet50_fpn
 
-from nenepy.torch.nn.modules import DynamicUpsample
-from nenepy.utils import Timer
+import matplotlib.pyplot as plt
+from PIL import ImageDraw, ImageFont
 
+from nenepy.torch.utils import Summary
 
-module = DynamicUpsample(scale_factor=(4, 4))
-x = torch.ones((2, 3, 56, 56))
-print(str(module.__class__).split(".")[-1].split("'")[0])
-# t = Timer()
-# for i in range(1000):
-#     y = module(x, scale_factor=(4, 4))
+img = Image.open(f"{Path.home()}/Pictures/living.jpg")
+img = np.array(img)
+img = torch.from_numpy(img)
+img = img.permute((2, 0, 1)).unsqueeze(0)
+img = img.cuda() / 255.0
+
+model = fasterrcnn_resnet50_fpn(pretrained=True)
+model.cuda()
+model.eval()
+
+summary = Summary(model, batch_size=1, is_validate=True, is_exit=True)
+summary.forward_tensor(img)
+
+# out = model(img)
 #
-# print(t, y.shape)
+# for dic in out:
+#     for key, value in dic.items():
+#         print(key, value)
+
+# 結果の表示
+
+
+# image = img[0].permute(1, 2, 0).cpu().numpy()
+# image = Image.fromarray((image * 255).astype(np.uint8))
+#
+# boxes = out[0]["boxes"].data.cpu().numpy()
+# scores = out[0]["scores"].data.cpu().numpy()
+# labels = out[0]["labels"].data.cpu().numpy()
+#
+# # boxes = boxes[scores >= 0.1].astype(np.int32)
+# # scores = scores[scores >= 0.1]
+#
+# for i, box in enumerate(boxes):
+#     draw = ImageDraw.Draw(image)
+#     label = "Unknown"
+#     draw.rectangle([(box[0], box[1]), (box[2], box[3])], outline="red", width=3)
+#
+#     # ラベルの表示
+#
+#     from PIL import Image, ImageDraw, ImageFont
+#
+#     # fnt = ImageFont.truetype('/content/mplus-1c-black.ttf', 20)
+#     fnt = ImageFont.truetype("UbuntuMono-R.ttf", 10)  # 40
+#     text_w, text_h = fnt.getsize(label)
+#     draw.rectangle([box[0], box[1], box[0] + text_w, box[1] + text_h], fill="red")
+#     draw.text((box[0], box[1]), label, font=fnt, fill='white')
+#
+# # 画像を保存したい時用
+# # image.save(f"resample_test{str(i)}.png")
+#
+# fig, ax = plt.subplots(1, 1)
+# ax.imshow(np.array(image))
+#
+# plt.show()
