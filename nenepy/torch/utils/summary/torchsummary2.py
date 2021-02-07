@@ -4,16 +4,18 @@ from collections import OrderedDict, Counter
 from numbers import Number
 from time import sleep
 import time
+from typing import List, Any
 
 import numpy as np
 import torch
 import torch.nn as nn
-from .modules import *
+from .block import Block, Value
 
 
 class TorchSummary:
+    modules: List[Block]
 
-    def __init__(self, model, batch_size=2, is_validate=False, device="cuda", sleep_time=0, is_exit=False):
+    def __init__(self, model, batch_size=2, is_validate=False, device="cuda", sleep_time=0, is_exit=True):
         """
 
         Args:
@@ -29,19 +31,20 @@ class TorchSummary:
         self.call_forwards = {}
         self.called_modules = []
         self.calling_indexes = []
-        self.blocks = []
+        self.modules = []
         self.roots = []
         self.now_block = None
         self.n_blocks = 0
         self.ordered_blocks = []
         self.sleep_time = sleep_time
         self.is_exit = is_exit
+
         if is_validate:
             self.model.eval()
         else:
             self.model.train()
 
-    def __call__(self, input_size, *args, **kwargs):
+    def forward_shape(self, input_size, *args, **kwargs):
         # multiple inputs to the network
         if isinstance(input_size, tuple):
             input_size = [input_size]
@@ -62,14 +65,14 @@ class TorchSummary:
 
         self.calc_depth()
 
-        # print(self.roots[0].output_texts)
-        # sys.exit()
-
         self.name_texts()
         sleep(self.sleep_time)
         # remove these hooks
         for h in self.hooks:
             h.remove()
+
+        if self.is_exit:
+            sys.exit()
 
     def forward_tensor(self, input_tensor, **kwargs):
         # batch_size of 2 for batchnorm
@@ -85,20 +88,32 @@ class TorchSummary:
         # make a forward pass
         self.model(*x, **kwargs)
 
-        Block.calc_depth(self.roots)
-        Architecture.init_constructions(self.roots)
+        Block.calc_length()
 
-        self.print_network()
+        self.calc_depth()
 
+        self.name_texts()
         sleep(self.sleep_time)
         # remove these hooks
         for h in self.hooks:
             h.remove()
 
-    def print_network(self):
-        for block in self.ordered_blocks:
-            printer = BlockPrinter(block)
-            printer.print_info()
+        if self.is_exit:
+            sys.exit()
+
+    def calc_depth(self):
+
+        def recursive(block, d):
+            block.depth = d
+            if len(block.blocks) > 0:
+                block.bottom = False
+                for b in block.blocks:
+                    recursive(b, d + 1)
+            else:
+                block.bottom = True
+
+        for root in self.roots:
+            recursive(root, 0)
 
     def _get_max_directory_structure_length(self):
         max_length = 0
@@ -374,45 +389,90 @@ class TorchSummary:
     # ==================================================================================================
 
     def register_hook(self, module):
-        """
 
-        Args:
-            module (nn.Module):
-
-        """
         if (isinstance(module, nn.Sequential)) or (isinstance(module, nn.ModuleList)):
             return
+        self.hooks.append(module.register_forward_pre_hook(self._pre_callback))
+        self.hooks.append(module.register_forward_hook(self._callback))
 
-        self.hooks.append(module.register_forward_pre_hook(self.pre_hook))
-        self.hooks.append(module.register_forward_hook(self.hook))
-
-    def pre_hook(self, module, module_in):
+    def _pre_callback(self, module, module_in):
         """
 
         Args:
             module (nn.Module):
             module_in:
 
+        Returns:
+
         """
-        block = Block()
-        if len(self.blocks) == 0:
-            self.roots.append(block)
+        if len(self.modules) == 0:
+            self.roots.append(module)
 
-        self.ordered_blocks.append(block)
-        self.blocks.append((block, time.time()))
+        self.modules.append((module, time.time()))
+        self.ordered_blocks.append(module)
 
-    def hook(self, module, module_in, module_out):
+    def _callback(self, module, module_in, module_out):
         """
 
         Args:
-            module (nn.Module):
+            module:
             module_in:
             module_out:
 
-        """
-        block, start_time = self.blocks.pop(-1)
-        block.processing_time = time.time() - start_time
-        block.module = Module(module, module_in, module_out)
+        Returns:
 
-        if len(self.blocks) > 0:
-            self.blocks[-1][0].child_blocks.append(block)
+        """
+        module, start_time = self.modules.pop(-1)
+        processing_time = time.time() - start_time
+
+        # 入力
+        input_dict = OrderedDict()
+        argument_dict = inspect.signature(module.forward).parameters
+        n_module_in = len(module_in)
+        for i, (key, value) in enumerate(argument_dict.items()):
+            if i < n_module_in:
+                if value.kind == inspect.Parameter.VAR_POSITIONAL:
+                    # 引数名なし(**kwargsでない) *argsの場合は すべて*argsとしてまとめる．
+                    input_dict[key] = Value(module_in[i:])
+                else:
+                    input_dict[key] = Value(module_in[i])
+            else:
+                # 入力で設定されなかったデフォルト値を持つ引数
+                input_dict[key] = Value(value.default)
+
+        # 出力
+        output_dict = OrderedDict()
+        if isinstance(module_out, torch.Tensor):
+            module_out = [module_out]
+        for i, out in enumerate(module_out):
+            output_dict[f"{i}"] = out
+
+        # block.input_kwargs = self.tensors_to_size_str(input_dict)
+        # block.output_kwargs = self.tensors_to_size_str(output_dict)
+
+        if len(self.modules) > 0:
+            self.modules[-1].add_block(module)
+
+        if hasattr(module, "weight") and hasattr(module.weight, "size"):
+            n_params = torch.prod(torch.LongTensor(list(module.weight.size()))).item()
+            module.add_weight_params(n_params, module.weight.requires_grad)
+
+        if hasattr(module, "bias") and hasattr(module.bias, "size"):
+            n_params = torch.prod(torch.LongTensor(list(module.bias.size()))).item()
+            module.add_bias_params(n_params, module.bias.requires_grad)
+
+        module.add_is_training(module.training)
+
+    @staticmethod
+    def tensors_to_size_str(tensors):
+        out = OrderedDict()
+        for key, value in tensors.items():
+            size_str = Value.init(value)
+            if isinstance(size_str, list):
+                for i, s in enumerate(size_str):
+                    key = f"*args({i})"
+                    out[key] = s
+
+            else:
+                out[key] = size_str
+        return out
