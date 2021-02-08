@@ -86,7 +86,11 @@ class TorchSummary:
         self.model(*x, **kwargs)
 
         Block.calc_depth(self.roots)
-        Architecture.init_constructions(self.roots)
+        # print(BlockPrinter.get_input_max_tensor_length(self.ordered_blocks))
+        # print(BlockPrinter.get_output_max_tensor_length(self.ordered_blocks))
+
+        # self.get_input_max_tensor_length(self.block.module.input)
+        # Architecture.init_constructions(self.roots)
 
         self.print_network()
 
@@ -96,9 +100,13 @@ class TorchSummary:
             h.remove()
 
     def print_network(self):
+        printers = []
         for block in self.ordered_blocks:
             printer = BlockPrinter(block)
-            printer.print_info()
+            printers.append(printer)
+
+        for printer in printers:
+            print(printer.to_print_format())
 
     def _get_max_directory_structure_length(self):
         max_length = 0
@@ -415,4 +423,6 @@ class TorchSummary:
         block.module = Module(module, module_in, module_out)
 
         if len(self.blocks) > 0:
-            self.blocks[-1][0].child_blocks.append(block)
+            parent_block = self.blocks[-1][0]
+            block.parent = parent_block
+            parent_block.child_blocks.append(block)

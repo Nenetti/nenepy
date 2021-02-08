@@ -4,10 +4,10 @@ import torchvision
 from torchvision.models.detection.image_list import ImageList
 
 from .value import Value
-from .dict_value import DictValue
+from .value_dict import ValueDict
 
 
-class Values:
+class ValueList:
 
     def __init__(self, values):
         self.values = values
@@ -15,16 +15,17 @@ class Values:
         self.n_print_elements = len(self.value_strs)
         # self.texts = self.to_texts(self.value_strs, self.value_coefficients)
         self.text = self._to_text(values)
+        self.n_print_elements = len(values)
         # self._type = self._to_type(values)
 
     @staticmethod
     def _summarize_texts(values):
         texts = []
         for value in values:
-            if isinstance(value, (Value, Values, DictValue)):
+            if isinstance(value, (Value, ValueList, ValueDict)):
                 texts.append(value.text)
             else:
-                raise ValueError
+                raise TypeError()
 
         counter_sorted = Counter(texts).most_common()
 

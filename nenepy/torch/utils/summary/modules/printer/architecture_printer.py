@@ -1,42 +1,49 @@
-from .block import Block
+from nenepy.torch.utils.summary.modules.block import Block
+from nenepy.torch.utils.summary.modules.printer.abstract_printer import AbstractPrinter
 
 
-class Architecture:
-    indent_space = 4
+class ArchitecturePrinter(AbstractPrinter):
 
-    def __init__(self, block, parent_directory_format):
+    def __init__(self, block):
         """
 
         Args:
             block (Block):
-        """
-        self.print_format = self.construct(block, parent_directory_format)
-        self.directory_format = self.to_directory_format(block)
-        self.child_directory_format = f"{parent_directory_format}{self.to_child_directory_format(block)}"
-
-    @staticmethod
-    def init_constructions(roots):
-        """
-        Args:
-            roots (list[Block]):
 
         """
+        self.text_format = self.to_text_format(block)
+        self.set_n_max_length(self.text_format)
 
-        def recursive(block, directory_format=""):
-            block.architecture = Architecture(block, directory_format)
-            for b in block.child_blocks:
-                recursive(b, block.architecture.child_directory_format)
-
-        for root in roots:
-            recursive(root)
+    def to_print_format(self):
+        return f"{self.text_format:<{self.n_max_length}}"
 
     @classmethod
-    def construct(cls, block, parent_directory_format):
-        n_space = cls.indent_space
-        # if block.has_children():
-        #     pass
-        directory_type = cls.to_directory_type(block)
-        directory_format = f"{directory_type:>{n_space}}"
+    def to_parent_formant(cls, block):
+        """
+
+        Args:
+            block (Block):
+
+        Returns:
+
+        """
+
+        def recursive(b, child_format):
+            if b.parent is not None:
+                self_format = cls.to_child_directory_format(b)
+                return recursive(b.parent, f"{self_format}{child_format}")
+            else:
+                return child_format
+
+        if block.parent is not None:
+            return recursive(block.parent, "")
+        else:
+            return ""
+
+    @classmethod
+    def to_text_format(cls, block):
+        parent_directory_format = cls.to_parent_formant(block)
+        directory_format = cls.to_directory_format(block)
         print_format = f"{parent_directory_format}{directory_format}{block.module.module_name}"
         return print_format
 
@@ -49,8 +56,11 @@ class Architecture:
 
     @classmethod
     def to_directory_format(cls, block):
-        directory_type = cls.to_directory_type(block)
-        return f"{directory_type:>{cls.indent_space}}"
+        if block.is_root:
+            return ""
+        else:
+            directory_type = cls.to_directory_type(block)
+            return f"{directory_type:>{cls.indent_space}}"
 
     @staticmethod
     def to_directory_type(block):
@@ -69,23 +79,6 @@ class Architecture:
             max_length = max(max_length, len(text))
 
         return max_length
-
-    @classmethod
-    def to_print_format(cls, block):
-        """
-
-        Args:
-            block (Block):
-
-        Returns:
-
-        """
-        n_space = cls.indent_space * block.depth
-        directory_type = ""
-        if block.is_last_module_in_sequential:
-            directory_type = "└"
-        else:
-            directory_type = "├"
 
     @staticmethod
     def to_directories(root, directory, directory_length, max_length, append, is_last):

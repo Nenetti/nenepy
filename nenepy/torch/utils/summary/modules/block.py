@@ -2,13 +2,13 @@ class Block:
 
     def __init__(self):
         self.module = None
+        self.parent = None
         self.child_blocks = []
         self.processing_time = 0
         self.depth = 0
         self.is_root = False
         self.is_bottom = False
         self.is_last_module_in_sequential = False
-        self.architecture = None
 
     def has_children(self):
         return len(self.child_blocks) > 0
