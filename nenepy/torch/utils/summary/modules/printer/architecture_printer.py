@@ -15,7 +15,31 @@ class ArchitecturePrinter(AbstractPrinter):
         self.set_n_max_length(self.text_format)
 
     def to_print_format(self):
-        return f"{self.text_format:<{self.n_max_length}}"
+        # return f"{self.text_format:<{self.n_max_length}}"
+        return self.text_format
+
+    @classmethod
+    def to_child_formant(cls, block):
+        """
+
+        Args:
+            block (Block):
+
+        Returns:
+
+        """
+
+        def recursive(b, child_format):
+            if b.parent is not None:
+                self_format = cls.to_child_directory_format(b)
+                return recursive(b.parent, f"{self_format}{child_format}")
+            else:
+                return child_format
+
+        if len(block.child_blocks) > 0:
+            return recursive(block.child_blocks[0], "")
+        else:
+            return recursive(block, "")
 
     @classmethod
     def to_parent_formant(cls, block):

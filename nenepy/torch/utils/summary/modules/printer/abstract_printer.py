@@ -5,7 +5,7 @@ from nenepy.torch.utils.summary.modules.value_dict import ValueDict
 
 
 class AbstractPrinter(metaclass=ABCMeta):
-    indent_space = 4
+    indent_space = 5
     n_max_length = 0
 
     @abstractmethod

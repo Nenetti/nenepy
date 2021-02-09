@@ -16,7 +16,7 @@ class ValueList:
         # self.texts = self.to_texts(self.value_strs, self.value_coefficients)
         self.text = self._to_text(values)
         self.n_print_elements = len(values)
-        # self._type = self._to_type(values)
+        self.type = self._to_type(values)
 
     @staticmethod
     def _summarize_texts(values):

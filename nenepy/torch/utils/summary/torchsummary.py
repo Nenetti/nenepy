@@ -106,7 +106,12 @@ class TorchSummary:
             printers.append(printer)
 
         for printer in printers:
-            print(printer.to_print_format())
+            printer.to_adjust()
+
+        for printer in printers:
+            print_formats = printer.to_print_format()
+            for print_format in print_formats:
+                print(print_format)
 
     def _get_max_directory_structure_length(self):
         max_length = 0

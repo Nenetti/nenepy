@@ -15,12 +15,29 @@ class Value:
     #   Class Method
     #
     # ==================================================================================================
+    def to_adjusted_text(self, each_dim_size):
+        """
+
+        Args:
+            each_dim_size (list[int]):
+
+        Returns:
+
+        """
+        if self.is_tensor:
+            texts = [f"{size:>{each_dim_size[i]}}" for i, size in enumerate(self.shapes)]
+            text = ", ".join(texts)
+            text = f"[{text}]"
+            return text
+        else:
+            return self.text
+
     @classmethod
     def _to_text(cls, value):
         if isinstance(value, torch.Tensor):
             return str(cls._tensor_to_str(value))
         elif cls._is_built_in_type(value):
-            return str(value)
+            return f"<'{cls._to_type(value)}' {str(value)}>"
         else:
             return cls._to_type(value)
 
@@ -44,8 +61,8 @@ class Value:
     @staticmethod
     def _tensor_to_str(value):
         size = list(value.shape)
-        if len(size) > 0:
-            size[0] = -1
+        # if len(size) > 0:
+        #     size[0] = -1
 
         return list(map(str, size))
 

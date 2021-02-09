@@ -11,11 +11,19 @@ class ValueDict:
             value_dict (dict):
         """
         self.value_dict = value_dict
-        self.items = value_dict.items()
-        self.values = list(value_dict.values())
-        self.keys = list(value_dict.keys())
         self.text = self._to_text(value_dict)
         self.n_print_elements = len(value_dict)
+
+    def items(self):
+        return self.value_dict.items()
+
+    @property
+    def values(self):
+        return list(self.value_dict.values())
+
+    @property
+    def keys(self):
+        return list(self.value_dict.keys())
 
     @staticmethod
     def _to_text(values):

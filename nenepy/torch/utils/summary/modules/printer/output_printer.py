@@ -7,11 +7,10 @@ from nenepy.torch.utils.summary.modules.value_dict import ValueDict
 import numpy as np
 
 
-class InputPrinter(AbstractPrinter):
+class OutputPrinter(AbstractPrinter):
     max_n_dims = 0
     max_each_dim_size = []
 
-    max_key_length = 0
     max_value_length = 0
 
     def __init__(self, module_in):
@@ -26,15 +25,29 @@ class InputPrinter(AbstractPrinter):
         self.set_n_max_length(self.text_format)
         self.set_max_n_dims(module_in)
         self.set_max_each_dim_size(module_in)
-        self.set_max_key_length(module_in)
         self.n_lines = self.calc_n_lines(module_in)
 
     def to_print_formats(self):
-        return self.to_value_dict_format(self.module_in.values, self.max_key_length)
+        if isinstance(self.module_in.values, ValueDict):
+            return self.to_value_dict_format(self.module_in.values)
+        elif isinstance(self.module_in.values, ValueList):
+            return self.to_value_list_format(self.module_in.values)
+        elif isinstance(self.module_in.values, Value):
+            return [self.module_in.values.text]
+        else:
+            raise TypeError()
 
     def to_print_format(self):
-        texts = self.to_value_dict_format(self.module_in.values, self.max_key_length)
-        return "\n".join(texts)
+        if isinstance(self.module_in.values, ValueDict):
+            texts = self.to_value_dict_format(self.module_in.values)
+            return "\n".join(texts)
+        elif isinstance(self.module_in.values, ValueList):
+            texts = self.to_value_list_format(self.module_in.values)
+            return "\n".join(texts)
+        elif isinstance(self.module_in.values, Value):
+            return self.module_in.values.text
+        else:
+            raise TypeError()
 
     @staticmethod
     def calc_max_text_length(texts):
@@ -60,34 +73,37 @@ class InputPrinter(AbstractPrinter):
         Returns:
 
         """
-        if max_key_length is None:
-            max_key_length = cls.calc_max_text_length(value_dict.keys)
-        formatted_keys = [cls.to_key_format(key, max_key_length) for key in value_dict.keys]
-        formatted_key_length = len(formatted_keys[0])
+        if len(value_dict.keys) > 0:
+            if max_key_length is None:
+                max_key_length = cls.calc_max_text_length(value_dict.keys)
+            formatted_keys = [cls.to_key_format(key, max_key_length) for key in value_dict.keys]
+            formatted_key_length = len(formatted_keys[0])
 
-        texts = []
-        for i, (key, value) in enumerate(value_dict.items()):
-            formatted_key = formatted_keys[i]
-            if isinstance(value, Value):
-                value_format = value.to_adjusted_text(cls.max_each_dim_size)
-                text = f"{formatted_key}{value_format}"
-                texts.append(text)
-            elif isinstance(value, (ValueList, ValueDict)):
-                if isinstance(value, ValueList):
-                    formatted_values = cls.to_value_list_format(value)
-                else:
-                    formatted_values = cls.to_value_dict_format(value)
-                child_texts = [""] * len(formatted_values)
-                for k, v in enumerate(formatted_values):
-                    if k == 0:
-                        child_texts[k] = f"{formatted_key}{v}"
+            texts = []
+            for i, (key, value) in enumerate(value_dict.items()):
+                formatted_key = formatted_keys[i]
+                if isinstance(value, Value):
+                    value_format = value.to_adjusted_text(cls.max_each_dim_size)
+                    text = f"{formatted_key}{value_format}"
+                    texts.append(text)
+                elif isinstance(value, (ValueList, ValueDict)):
+                    if isinstance(value, ValueList):
+                        formatted_values = cls.to_value_list_format(value)
                     else:
-                        child_texts[k] = f"{'':>{formatted_key_length}}{v}"
-                texts += child_texts
-            else:
-                raise TypeError()
+                        formatted_values = cls.to_value_dict_format(value)
+                    child_texts = [""] * len(formatted_values)
+                    for k, v in enumerate(formatted_values):
+                        if k == 0:
+                            child_texts[k] = f"{formatted_key}{v}"
+                        else:
+                            child_texts[k] = f"{'':>{formatted_key_length}}{v}"
+                    texts += child_texts
+                else:
+                    raise TypeError()
 
-        return texts
+            return texts
+        else:
+            return []
 
     @classmethod
     def to_value_list_format(cls, value_list):
@@ -156,118 +172,9 @@ class InputPrinter(AbstractPrinter):
         else:
             return " │"
 
-    #
-    # @classmethod
-    # def to_dict_value_format(cls, value_dict, n_indent):
-    #     """
-    #
-    #     Args:
-    #         value_dict (ValueDict):
-    #         n_indent:
-    #
-    #     Returns:
-    #
-    #     """
-    #     max_key_length = cls.calc_max_text_length(value_dict.keys)
-    #
-    #     if n_indent == 0:
-    #         max_key_length = cls.max_key_length
-    #
-    #     texts = []
-    #     for key, value in value_dict.value_dict.items():
-    #         if isinstance(value, Value):
-    #             if value.is_tensor:
-    #                 text = value.to_adjusted_text(cls.max_each_dim_size)
-    #             else:
-    #                 text = value.text
-    #             text = f"{'':>{n_indent}}{key:>{max_key_length}}: {text}"
-    #             texts.append(text)
-    #         elif isinstance(value, ValueList):
-    #             texts += cls.to_value_list_format(value, n_indent + max_key_length + cls.indent_space, dict_key=key)
-    #         elif isinstance(value, ValueDict):
-    #             texts += cls.to_dict_value_format(value, n_indent + max_key_length + cls.indent_space)
-    #         else:
-    #             raise TypeError()
-    #     return texts
-    #
-    # @classmethod
-    # def to_value_list_format(cls, value_list, n_indent, dict_key=None):
-    #     """
-    #
-    #     Args:
-    #         value_list (ValueList):
-    #         n_indent:
-    #
-    #     Returns:
-    #
-    #     """
-    #     key = f"<{value_list.type}>"
-    #     if dict_key is not None:
-    #         key = f"{dict_key}: <{value_list.type}>"
-    #
-    #     key_length = len(key)
-    #     texts = []
-    #     length = len(value_list.values)
-    #     for i, value in enumerate(value_list.values):
-    #         if isinstance(value, Value):
-    #             if value.is_tensor:
-    #                 text = value.to_adjusted_text(cls.max_each_dim_size)
-    #             else:
-    #                 text = value.text
-    #
-    #             if i == 0:
-    #                 text = f"{'':>{n_indent}}{key:>{key_length}} ┌ {text}"
-    #             elif i == length - 1:
-    #                 text = f"{'':>{n_indent}}{'':>{key_length}} └ {text}"
-    #             else:
-    #                 text = f"{'':>{n_indent}}{'':>{key_length}} │ {text}"
-    #             texts.append(text)
-    #         elif isinstance(value, ValueList):
-    #             texts += cls.to_value_list_format(value, n_indent + key_length + cls.indent_space, dict_key=key)
-    #         elif isinstance(value, ValueDict):
-    #             texts += cls.to_dict_value_format(value, n_indent + key_length + cls.indent_space)
-    #         else:
-    #             raise TypeError()
-    #
-    #     max_length = 0
-    #     for i, text in enumerate(texts):
-    #         if len(text) > max_length:
-    #             max_length = len(text)
-    #
-    #     for i, text in enumerate(texts):
-    #         # print("A", i, text)
-    #
-    #         text = f"{text:<{max_length}}"
-    #         if i == 0:
-    #             text = f"{text} ┐ "
-    #         elif i == length - 1:
-    #             text = f"{text} ┘ "
-    #         else:
-    #             text = f"{text} │ "
-    #
-    #         texts[i] = text
-    #
-    #     return texts
-
     @classmethod
     def to_text_format(cls, module_in):
         return str(module_in.values)
-
-    @classmethod
-    def set_max_key_length(cls, module_in):
-        """
-
-        Args:
-            module_in (Input):
-
-        Returns:
-
-        """
-        d = module_in.values.value_dict
-        if len(d) > 1:
-            for key in d.keys():
-                if len(key) > cls.max_key_length:
-                    cls.max_key_length = len(key)
 
     @classmethod
     def set_max_n_dims(cls, module_in):
@@ -319,6 +226,8 @@ class InputPrinter(AbstractPrinter):
             elif isinstance(value, (ValueList, ValueDict)):
                 if len(value.values) > 0:
                     return np.max(np.stack([recursive(v) for v in value.values], axis=0), axis=0)
+                else:
+                    return np.zeros(shape=cls.max_n_dims, dtype=np.int)
             else:
                 raise TypeError()
 
