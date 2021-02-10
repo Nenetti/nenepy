@@ -108,6 +108,8 @@ class TorchSummary:
         for printer in printers:
             printer.to_adjust()
 
+        print(BlockPrinter.to_print_header())
+
         for printer in printers:
             print_formats = printer.to_print_format()
             for print_format in print_formats:

@@ -14,6 +14,12 @@ class Parameter:
         self.n_weight_params, self.weight_requires_grad = self.analyze_weight(module)
         self.n_bias_params, self.bias_requires_grad = self.analyze_bias(module)
 
+    def weight_str(self):
+        return f"{self.n_weight_params:,}"
+
+    def bias_str(self):
+        return f"{self.n_bias_params:,}"
+
     @classmethod
     def analyze_weight(cls, module):
         weight_params = 0
