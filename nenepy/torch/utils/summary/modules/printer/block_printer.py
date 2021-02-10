@@ -5,6 +5,7 @@ from nenepy.torch.utils.summary.modules.printer.abstract_printer import Abstract
 from nenepy.torch.utils.summary.modules.printer.input_printer import InputPrinter
 from nenepy.torch.utils.summary.modules.printer.output_printer import OutputPrinter
 from nenepy.torch.utils.summary.modules.printer.parameter_printer import ParameterPrinter
+from nenepy.torch.utils.summary.modules.printer.time_printer import TimePrinter
 from nenepy.torch.utils.summary.modules.value import Value
 from nenepy.torch.utils.summary.modules.value_list import ValueList
 from nenepy.torch.utils.summary.modules.value_dict import ValueDict
@@ -15,6 +16,7 @@ class BlockPrinter(AbstractPrinter):
     max_input_length = 0
     max_output_length = 0
     max_parameter_length = 0
+    max_time_length = 0
 
     def __init__(self, block):
         self.block = block
@@ -22,23 +24,26 @@ class BlockPrinter(AbstractPrinter):
         self.input_printer = InputPrinter(block.module.input)
         self.output_printer = OutputPrinter(block.module.output)
         self.parameter_printer = ParameterPrinter(block.module.parameter)
+        self.time_printer = TimePrinter(block.processing_time)
 
     def to_adjust(self):
         self.set_max_architecture_length(self.architecture_printer)
         self.set_max_input_length(self.input_printer)
         self.set_max_output_length(self.output_printer)
         self.set_max_parameter_length(self.parameter_printer)
+        self.set_max_time_length(self.time_printer)
 
     @classmethod
     def to_print_header(cls):
         architecture_repr = "Network Architecture"
         input_repr = "Input"
         output_repr = "Output"
-        parameter_repr = "Parameters"
+        parameter_repr = "Parameter"
         weight_repr = "Weight"
         bias_repr = "Bias"
         train_repr = "Train"
         untrain_repr = "Untrain"
+        time_repr = "Time(ms)"
 
         parameter_sub_format = f"{weight_repr} │ {bias_repr} │ {train_repr} │ {untrain_repr}"
 
@@ -46,23 +51,26 @@ class BlockPrinter(AbstractPrinter):
         input_format = f"{input_repr:^{cls.max_input_length}}"
         output_format = f"{output_repr:^{cls.max_output_length}}"
         parameter_format = f"{parameter_repr:^{cls.max_parameter_length}}"
+        time_format = f"{time_repr:^{cls.max_time_length}}"
 
         empty_architecture_format = " " * cls.max_architecture_length
         empty_input_format = " " * cls.max_input_length
         empty_output_format = " " * cls.max_output_length
         empty_parameter_format = " " * cls.max_parameter_length
+        empty_time_format = " " * cls.max_time_length
 
         bar_architecture_format = "=" * cls.max_architecture_length
         bar_input_format = "=" * cls.max_input_length
         bar_output_format = "=" * cls.max_output_length
         bar_parameter_format = "=" * cls.max_parameter_length
+        bar_time_format = "=" * cls.max_time_length
 
-        bar = f"{bar_architecture_format}=│={bar_input_format}=│={bar_output_format}=│={bar_parameter_format}=│"
-        title = f"{architecture_format} │ {input_format} │ {output_format} │ {parameter_format} │ "
-        sub_title = f"{empty_architecture_format} │ {empty_input_format} │ {empty_output_format} │  {parameter_sub_format} │"
-        empty = f"{empty_architecture_format} │ {empty_input_format} │ {empty_output_format} │ {empty_parameter_format} │"
+        bar = f"{bar_architecture_format}=│={bar_input_format}=│={bar_output_format}=│={bar_parameter_format}=│={bar_time_format}=│"
+        line1 = f"{empty_architecture_format} │ {empty_input_format} │ {empty_output_format} │ {parameter_format} │ {empty_time_format} │"
+        line2 = f"{architecture_format} │ {input_format} │ {output_format} │ {empty_parameter_format} │ {time_format} │"
+        line3 = f"{empty_architecture_format} │ {empty_input_format} │ {empty_output_format} │  {parameter_sub_format} │ {empty_time_format} │"
 
-        return "\n".join([bar, empty, title, sub_title, empty, bar])
+        return "\n".join([bar, line1, line2, line3, bar])
 
     # def to_repeat_text(self, char, n):
     #     return char * n
@@ -74,6 +82,7 @@ class BlockPrinter(AbstractPrinter):
         input_formats = self.input_printer.to_print_formats()
         output_formats = self.output_printer.to_print_formats()
         parameter_format = self.parameter_printer.to_print_format()
+        time_format = self.time_printer.to_print_format()
 
         max_n_elements = max([len(input_formats), len(output_formats)])
 
@@ -81,22 +90,31 @@ class BlockPrinter(AbstractPrinter):
         inputs = [""] * max_n_elements
         outputs = [""] * max_n_elements
         parameters = [""] * max_n_elements
+        times = [""] * max_n_elements
 
         architectures[0] = architecture_format
         inputs[:len(input_formats)] = input_formats
         outputs[:len(output_formats)] = output_formats
         parameters[0] = parameter_format
+        times[0] = time_format
 
         for i in range(max_n_elements):
             architecture_format = f"{architectures[i]:<{self.max_architecture_length}}"
             input_format = f"{inputs[i]:<{self.max_input_length}}"
             output_format = f"{outputs[i]:<{self.max_output_length}}"
             parameter_format = f"{parameters[i]}"
+            time_format = f"{times[i]}"
 
-            print_format = f"{architecture_format} │ {input_format} │ {output_format} │ {parameter_format} │"
+            print_format = f"{architecture_format} │ {input_format} │ {output_format} │ {parameter_format} │ {time_format} │"
             print_formats.append(print_format)
 
         return print_formats
+
+    @classmethod
+    def set_max_time_length(cls, time_printer):
+        length = len(time_printer.to_print_format())
+        if length > cls.max_time_length:
+            cls.max_time_length = length
 
     @classmethod
     def set_max_parameter_length(cls, parameter_printer):

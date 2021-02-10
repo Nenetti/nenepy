@@ -54,12 +54,6 @@ class ParameterPrinter(AbstractPrinter):
         else:
             return 0
 
-    @staticmethod
-    def to_key_format(key, adjustment_length=None):
-        if adjustment_length is None:
-            adjustment_length = len(key)
-        return f"{key:>{adjustment_length}}: "
-
     @classmethod
     def set_max_weight_length(cls, parameter):
         """
