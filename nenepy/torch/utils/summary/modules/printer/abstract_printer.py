@@ -8,11 +8,6 @@ class AbstractPrinter(metaclass=ABCMeta):
     indent_space = 5
     n_max_length = 0
 
-    @abstractmethod
-    def to_print_format(self):
-        raise NotImplementedError()
-
-
     @classmethod
     def set_n_max_length(cls, print_format):
         if cls.n_max_length < len(print_format):

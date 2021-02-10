@@ -26,26 +26,32 @@ class BlockPrinter(AbstractPrinter):
         self.parameter_printer = ParameterPrinter(block.module.parameter)
         self.time_printer = TimePrinter(block.processing_time)
 
-    def to_adjust(self):
-        self.set_max_architecture_length(self.architecture_printer)
-        self.set_max_input_length(self.input_printer)
-        self.set_max_output_length(self.output_printer)
-        self.set_max_parameter_length(self.parameter_printer)
-        self.set_max_time_length(self.time_printer)
+    @classmethod
+    def to_adjust(cls, printers):
+        InputPrinter.to_adjust([printer.input_printer for printer in printers])
+        OutputPrinter.to_adjust([printer.output_printer for printer in printers])
+        ParameterPrinter.to_adjust([printer.parameter_printer for printer in printers])
+        TimePrinter.to_adjust([printer.time_printer for printer in printers])
+
+        cls.max_architecture_length = max([cls.calc_max_architecture_length(printer) for printer in printers])
+        cls.max_input_length = max([cls.calc_max_input_length(printer) for printer in printers])
+        cls.max_output_length = max([cls.calc_max_output_length(printer) for printer in printers])
+        cls.max_parameter_length = max([cls.calc_max_parameter_length(printer) for printer in printers])
+        cls.max_time_length = max([cls.calc_max_time_length(printer) for printer in printers])
 
     @classmethod
     def to_print_header(cls):
         architecture_repr = "Network Architecture"
         input_repr = "Input"
         output_repr = "Output"
-        parameter_repr = "Parameter"
-        weight_repr = "Weight"
-        bias_repr = "Bias"
-        train_repr = "Train"
-        untrain_repr = "Untrain"
-        time_repr = "Time(ms)"
+        parameter_repr = ParameterPrinter.to_parameter_repr()
+        weight_repr = ParameterPrinter.to_weight_repr()
+        bias_repr = ParameterPrinter.to_bias_repr()
+        train_repr = ParameterPrinter.to_train_repr()
+        untrain_repr = ParameterPrinter.to_untrain_repr()
+        time_repr = TimePrinter.to_time_repr()
 
-        parameter_sub_format = f"{weight_repr} │ {bias_repr} │ {train_repr} │ {untrain_repr}"
+        parameter_sub_format = f"{weight_repr}   {bias_repr}   {train_repr}   {untrain_repr}"
 
         architecture_format = f"{architecture_repr:^{cls.max_architecture_length}}"
         input_format = f"{input_repr:^{cls.max_input_length}}"
@@ -71,9 +77,6 @@ class BlockPrinter(AbstractPrinter):
         line3 = f"{empty_architecture_format} │ {empty_input_format} │ {empty_output_format} │  {parameter_sub_format} │ {empty_time_format} │"
 
         return "\n".join([bar, line1, line2, line3, bar])
-
-    # def to_repeat_text(self, char, n):
-    #     return char * n
 
     def to_print_format(self):
         print_formats = []
@@ -102,51 +105,36 @@ class BlockPrinter(AbstractPrinter):
             architecture_format = f"{architectures[i]:<{self.max_architecture_length}}"
             input_format = f"{inputs[i]:<{self.max_input_length}}"
             output_format = f"{outputs[i]:<{self.max_output_length}}"
-            parameter_format = f"{parameters[i]}"
-            time_format = f"{times[i]}"
+            parameter_format = f"{parameters[i]:<{self.max_parameter_length}}"
+            time_format = f"{times[i]:<{self.max_time_length}}"
 
             print_format = f"{architecture_format} │ {input_format} │ {output_format} │ {parameter_format} │ {time_format} │"
             print_formats.append(print_format)
 
         return print_formats
 
-    @classmethod
-    def set_max_time_length(cls, time_printer):
-        length = len(time_printer.to_print_format())
-        if length > cls.max_time_length:
-            cls.max_time_length = length
+    def calc_max_time_length(self):
+        return len(self.time_printer.to_print_format())
 
-    @classmethod
-    def set_max_parameter_length(cls, parameter_printer):
-        length = len(parameter_printer.to_print_format())
-        if length > cls.max_parameter_length:
-            cls.max_parameter_length = length
+    def calc_max_parameter_length(self):
+        return len(self.parameter_printer.to_print_format())
 
-    @classmethod
-    def set_max_output_length(cls, output_printer):
-        formatted_texts = output_printer.to_print_formats()
-        for text in formatted_texts:
-            length = len(text)
-            if length > cls.max_output_length:
-                cls.max_output_length = length
+    def calc_max_output_length(self):
+        texts = self.output_printer.to_print_formats()
+        if len(texts) > 0:
+            return max([len(text) for text in texts])
+        else:
+            return 0
 
-    @classmethod
-    def set_max_input_length(cls, input_printer):
-        formatted_texts = input_printer.to_print_formats()
-        for text in formatted_texts:
-            length = len(text)
-            if length > cls.max_input_length:
-                cls.max_input_length = length
+    def calc_max_input_length(self):
+        texts = self.input_printer.to_print_formats()
+        if len(texts) > 0:
+            return max([len(text) for text in texts])
+        else:
+            return 0
 
-    @classmethod
-    def set_max_architecture_length(cls, architecture_printer):
-        length = len(architecture_printer.to_print_format())
-        if length > cls.max_architecture_length:
-            cls.max_architecture_length = length
-
-    @classmethod
-    def calc(cls, blocks):
-        InputPrinter.calc(blocks)
+    def calc_max_architecture_length(self):
+        return len(self.architecture_printer.to_print_format())
 
     @staticmethod
     def input_to_print_format(input):

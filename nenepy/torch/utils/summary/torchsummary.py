@@ -105,8 +105,7 @@ class TorchSummary:
             printer = BlockPrinter(block)
             printers.append(printer)
 
-        for printer in printers:
-            printer.to_adjust()
+        BlockPrinter.to_adjust(printers)
 
         print(BlockPrinter.to_print_header())
 

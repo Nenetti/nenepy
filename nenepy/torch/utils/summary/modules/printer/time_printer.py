@@ -9,7 +9,9 @@ import numpy as np
 
 
 class TimePrinter(AbstractPrinter):
-    max_length = 0
+    time_repr = "Time (ms)"
+
+    max_length = len(time_repr)
 
     def __init__(self, time):
         """
@@ -19,7 +21,14 @@ class TimePrinter(AbstractPrinter):
 
         """
         self.time = time
-        self.set_max_length(time)
+
+    @classmethod
+    def to_adjust(cls, printers):
+        cls.max_length = max([cls.max_length, max([cls.calc_max_length(printer.time) for printer in printers])])
+
+    @classmethod
+    def to_time_repr(cls):
+        return f"{cls.time_repr:^{cls.max_length}}"
 
     def to_print_format(self):
         time_str = self.to_time_str(self.time)
@@ -28,7 +37,6 @@ class TimePrinter(AbstractPrinter):
 
     @staticmethod
     def to_time_str(time):
-        # return str(int(time * 1000))
         t = time * 1000
         if int(t) > 0:
             return f"{t:.2f}"
@@ -58,7 +66,7 @@ class TimePrinter(AbstractPrinter):
             return 0
 
     @classmethod
-    def set_max_length(cls, time):
+    def calc_max_length(cls, time):
         """
 
         Args:
@@ -67,6 +75,4 @@ class TimePrinter(AbstractPrinter):
         Returns:
 
         """
-        length = len(cls.to_time_str(time))
-        if length > cls.max_length:
-            cls.max_length = length
+        return len(cls.to_time_str(time))

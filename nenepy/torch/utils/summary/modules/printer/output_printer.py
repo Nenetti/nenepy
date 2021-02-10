@@ -11,43 +11,38 @@ class OutputPrinter(AbstractPrinter):
     max_n_dims = 0
     max_each_dim_size = []
 
-    max_value_length = 0
+    max_key_length = 0
 
-    def __init__(self, module_in):
+    def __init__(self, module_out):
         """
 
         Args:
-            module_in (Input):
+            module_out (Input):
 
         """
-        self.module_in = module_in
-        self.text_format = self.to_text_format(module_in)
+        self.module_out = module_out
+        self.text_format = self.to_text_format(module_out)
         self.set_n_max_length(self.text_format)
-        self.set_max_n_dims(module_in)
-        self.set_max_each_dim_size(module_in)
-        self.n_lines = self.calc_n_lines(module_in)
+
+    @classmethod
+    def to_adjust(cls, printers):
+        cls.max_n_dims = max([cls.calc_max_n_dims(printer.module_out) for printer in printers])
+        cls.max_each_dim_size = np.max(np.stack([cls.calc_max_each_dim_size(printer.module_out) for printer in printers], axis=0), axis=0)
+        cls.max_key_length = max([cls.calc_max_key_length(printer.module_out) for printer in printers])
 
     def to_print_formats(self):
-        if isinstance(self.module_in.values, ValueDict):
-            return self.to_value_dict_format(self.module_in.values)
-        elif isinstance(self.module_in.values, ValueList):
-            return self.to_value_list_format(self.module_in.values)
-        elif isinstance(self.module_in.values, Value):
-            return [self.module_in.values.text]
+        if isinstance(self.module_out.values, ValueDict):
+            return self.to_value_dict_format(self.module_out.values)
+        elif isinstance(self.module_out.values, ValueList):
+            return self.to_value_list_format(self.module_out.values)
+        elif isinstance(self.module_out.values, Value):
+            return [self.module_out.values.to_adjusted_text(self.max_each_dim_size)]
         else:
             raise TypeError()
 
     def to_print_format(self):
-        if isinstance(self.module_in.values, ValueDict):
-            texts = self.to_value_dict_format(self.module_in.values)
-            return "\n".join(texts)
-        elif isinstance(self.module_in.values, ValueList):
-            texts = self.to_value_list_format(self.module_in.values)
-            return "\n".join(texts)
-        elif isinstance(self.module_in.values, Value):
-            return self.module_in.values.text
-        else:
-            raise TypeError()
+        texts = self.to_value_dict_format(self.module_out.values, self.max_key_length)
+        return "\n".join(texts)
 
     @staticmethod
     def calc_max_text_length(texts):
@@ -73,37 +68,36 @@ class OutputPrinter(AbstractPrinter):
         Returns:
 
         """
-        if len(value_dict.keys) > 0:
-            if max_key_length is None:
-                max_key_length = cls.calc_max_text_length(value_dict.keys)
-            formatted_keys = [cls.to_key_format(key, max_key_length) for key in value_dict.keys]
-            formatted_key_length = len(formatted_keys[0])
-
-            texts = []
-            for i, (key, value) in enumerate(value_dict.items()):
-                formatted_key = formatted_keys[i]
-                if isinstance(value, Value):
-                    value_format = value.to_adjusted_text(cls.max_each_dim_size)
-                    text = f"{formatted_key}{value_format}"
-                    texts.append(text)
-                elif isinstance(value, (ValueList, ValueDict)):
-                    if isinstance(value, ValueList):
-                        formatted_values = cls.to_value_list_format(value)
-                    else:
-                        formatted_values = cls.to_value_dict_format(value)
-                    child_texts = [""] * len(formatted_values)
-                    for k, v in enumerate(formatted_values):
-                        if k == 0:
-                            child_texts[k] = f"{formatted_key}{v}"
-                        else:
-                            child_texts[k] = f"{'':>{formatted_key_length}}{v}"
-                    texts += child_texts
-                else:
-                    raise TypeError()
-
-            return texts
-        else:
+        if max_key_length is None:
+            max_key_length = cls.calc_max_text_length(value_dict.keys)
+        formatted_keys = [cls.to_key_format(key, max_key_length) for key in value_dict.keys]
+        if len(formatted_keys) == 0:
             return []
+        formatted_key_length = len(formatted_keys[0])
+
+        texts = []
+        for i, (key, value) in enumerate(value_dict.items()):
+            formatted_key = formatted_keys[i]
+            if isinstance(value, Value):
+                value_format = value.to_adjusted_text(cls.max_each_dim_size)
+                text = f"{formatted_key}{value_format}"
+                texts.append(text)
+            elif isinstance(value, (ValueList, ValueDict)):
+                if isinstance(value, ValueList):
+                    formatted_values = cls.to_value_list_format(value)
+                else:
+                    formatted_values = cls.to_value_dict_format(value)
+                child_texts = [""] * len(formatted_values)
+                for k, v in enumerate(formatted_values):
+                    if k == 0:
+                        child_texts[k] = f"{formatted_key}{v}"
+                    else:
+                        child_texts[k] = f"{'':>{formatted_key_length}}{v}"
+                texts += child_texts
+            else:
+                raise TypeError()
+
+        return texts
 
     @classmethod
     def to_value_list_format(cls, value_list):
@@ -173,86 +167,77 @@ class OutputPrinter(AbstractPrinter):
             return " │"
 
     @classmethod
-    def to_text_format(cls, module_in):
-        return str(module_in.values)
+    def to_text_format(cls, module_out):
+        return str(module_out.values)
 
     @classmethod
-    def set_max_n_dims(cls, module_in):
+    def calc_max_key_length(cls, module_out):
         """
 
         Args:
-            module_in (Input):
+            module_out (Input):
 
         Returns:
 
         """
-
-        def recursive(value):
-            if isinstance(value, Value):
-                if value.is_tensor:
-                    return len(value.shapes)
-            elif isinstance(value, (ValueList, ValueDict)):
-                if len(value.values) > 0:
-                    return max([recursive(v) for v in value.values])
-            else:
-                raise TypeError()
-            return 0
-
-        size = recursive(module_in.values)
-        if cls.max_n_dims < size:
-            cls.max_n_dims = size
+        if isinstance(module_out.values, ValueDict):
+            return max([len(key) for key in module_out.values.value_dict.keys()])
+        return 0
 
     @classmethod
-    def set_max_each_dim_size(cls, module_in):
+    def calc_max_n_dims(cls, module_out):
         """
 
         Args:
-            module_in (Input):
+            module_out (Input):
 
         Returns:
 
         """
+        return cls._calc_max_n_dims_recursive(module_out.values)
 
-        def recursive(value):
-            if isinstance(value, Value):
-                if value.is_tensor:
-                    each_size = np.zeros(shape=cls.max_n_dims, dtype=np.int)
-                    for i in range(len(value.shapes)):
-                        each_size[i] = len(value.shapes[i])
-                    return each_size
-                else:
-                    return np.zeros(shape=cls.max_n_dims, dtype=np.int)
+    @classmethod
+    def _calc_max_n_dims_recursive(cls, value):
+        if isinstance(value, Value):
+            if value.is_tensor:
+                return len(value.shapes)
+        elif isinstance(value, (ValueList, ValueDict)):
+            if len(value.values) > 0:
+                return max([cls._calc_max_n_dims_recursive(v) for v in value.values])
+        else:
+            raise TypeError()
 
-            elif isinstance(value, (ValueList, ValueDict)):
-                if len(value.values) > 0:
-                    return np.max(np.stack([recursive(v) for v in value.values], axis=0), axis=0)
-                else:
-                    return np.zeros(shape=cls.max_n_dims, dtype=np.int)
+        return 0
+
+    @classmethod
+    def calc_max_each_dim_size(cls, module_out):
+        """
+
+        Args:
+            module_out (Input):
+
+        Returns:
+
+        """
+        each_dim_size = cls._calc_max_each_dim_size_recursive(module_out.values, cls.max_n_dims)
+        return each_dim_size
+
+    @classmethod
+    def _calc_max_each_dim_size_recursive(cls, value, max_n_dims):
+        if isinstance(value, Value):
+            if value.is_tensor:
+                each_size = np.zeros(shape=max_n_dims, dtype=np.int)
+                for i in range(len(value.shapes)):
+                    each_size[i] = len(value.shapes[i])
+                return each_size
             else:
-                raise TypeError()
+                return np.zeros(shape=max_n_dims, dtype=np.int)
 
-        each_dim_size = recursive(module_in.values)
-
-        if len(cls.max_each_dim_size) != len(each_dim_size):
-            t = [0] * cls.max_n_dims
-            t[:len(cls.max_each_dim_size)] = cls.max_each_dim_size
-            cls.max_each_dim_size = t
-
-        for i in range(len(each_dim_size)):
-            if each_dim_size[i] > cls.max_each_dim_size[i]:
-                cls.max_each_dim_size[i] = each_dim_size[i]
-
-    @staticmethod
-    def calc_n_lines(module_in):
-        def recursive(value):
-            if isinstance(value, Value):
-                return 1
-            elif isinstance(value, (ValueList, ValueDict)):
-                if len(value.values) > 0:
-                    return sum([recursive(v) for v in value.values])
-                else:
-                    return 1
+        elif isinstance(value, (ValueList, ValueDict)):
+            if len(value.values) > 0:
+                return np.max(np.stack([cls._calc_max_each_dim_size_recursive(v, max_n_dims) for v in value.values], axis=0), axis=0)
             else:
-                raise TypeError()
+                return np.zeros(shape=max_n_dims, dtype=np.int)
 
-        return recursive(module_in.values)
+        else:
+            raise TypeError()

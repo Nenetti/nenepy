@@ -9,8 +9,16 @@ import numpy as np
 
 
 class ParameterPrinter(AbstractPrinter):
-    max_weight_length = 0
-    max_bias_length = 0
+    parameter_repr = "Parameter"
+    weight_repr = "Weight"
+    bias_repr = "Bias"
+    train_repr = "Train"
+    untrain_repr = "Untrain"
+
+    max_weight_length = len(weight_repr)
+    max_bias_length = len(bias_repr)
+    max_train_length = len(train_repr)
+    max_untrain_length = len(untrain_repr)
 
     def __init__(self, parameter):
         """
@@ -20,16 +28,39 @@ class ParameterPrinter(AbstractPrinter):
 
         """
         self.parameter = parameter
-        self.set_max_weight_length(parameter)
-        self.set_max_bias_length(parameter)
+
+    @classmethod
+    def to_parameter_repr(cls):
+        return f"{cls.parameter_repr:^{cls.n_max_length}}"
+
+    @classmethod
+    def to_weight_repr(cls):
+        return f"{cls.weight_repr:^{cls.max_weight_length}}"
+
+    @classmethod
+    def to_bias_repr(cls):
+        return f"{cls.bias_repr:^{cls.max_bias_length}}"
+
+    @classmethod
+    def to_train_repr(cls):
+        return f"{cls.train_repr:^{cls.max_train_length}}"
+
+    @classmethod
+    def to_untrain_repr(cls):
+        return f"{cls.untrain_repr:^{cls.max_untrain_length}}"
+
+    @classmethod
+    def to_adjust(cls, printers):
+        cls.max_weight_length = max([cls.max_weight_length, max([cls.calc_max_weight_length(printer.parameter) for printer in printers])])
+        cls.max_bias_length = max([cls.max_bias_length, max([cls.calc_max_bias_length(printer.parameter) for printer in printers])])
 
     def to_print_format(self):
         weight_format = f"{self.parameter.weight_str():>{self.max_weight_length}}"
         bias_format = f"{self.parameter.bias_str():>{self.max_bias_length}}"
-        train_format = self.to_train_format(self.parameter.is_train)
-        untrain_format = self.to_train_format(not self.parameter.is_train)
+        train_format = f"{self.to_train_format(self.parameter.is_train):^{self.max_train_length}}"
+        untrain_format = f"{self.to_train_format(not self.parameter.is_train):^{self.max_untrain_length}}"
 
-        print_format = f"{weight_format} │ {bias_format} │ {train_format} │ {untrain_format}"
+        print_format = f"{weight_format} │ {bias_format} │ {train_format} │ {untrain_format} "
         return print_format
 
     @staticmethod
@@ -47,15 +78,8 @@ class ParameterPrinter(AbstractPrinter):
         else:
             return " "
 
-    @staticmethod
-    def calc_max_text_length(texts):
-        if len(texts) > 0:
-            return max([len(text) for text in texts])
-        else:
-            return 0
-
     @classmethod
-    def set_max_weight_length(cls, parameter):
+    def calc_max_weight_length(cls, parameter):
         """
 
         Args:
@@ -64,12 +88,10 @@ class ParameterPrinter(AbstractPrinter):
         Returns:
 
         """
-        n_weight = len(parameter.weight_str())
-        if n_weight > cls.max_weight_length:
-            cls.max_weight_length = n_weight
+        return len(parameter.weight_str())
 
     @classmethod
-    def set_max_bias_length(cls, parameter):
+    def calc_max_bias_length(cls, parameter):
         """
 
         Args:
@@ -78,6 +100,4 @@ class ParameterPrinter(AbstractPrinter):
         Returns:
 
         """
-        n_bias = len(parameter.bias_str())
-        if n_bias > cls.max_bias_length:
-            cls.max_bias_length = n_bias
+        return len(parameter.bias_str())

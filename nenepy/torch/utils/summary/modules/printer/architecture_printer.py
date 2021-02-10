@@ -15,7 +15,6 @@ class ArchitecturePrinter(AbstractPrinter):
         self.set_n_max_length(self.text_format)
 
     def to_print_format(self):
-        # return f"{self.text_format:<{self.n_max_length}}"
         return self.text_format
 
     @classmethod
