@@ -41,6 +41,29 @@ class ArchitecturePrinter(AbstractPrinter):
             return recursive(block, "")
 
     @classmethod
+    def to_parent_formant2(cls, block):
+        """
+
+        Args:
+            block (Block):
+
+        Returns:
+
+        """
+
+        def recursive(b, child_format):
+            if b.parent is not None:
+                self_format = cls.to_child_directory_format(b)
+                return recursive(b.parent, f"{self_format}{child_format}")
+            else:
+                return child_format
+
+        if block.parent is not None:
+            return recursive(block.parent, "") + f"{'│ ':>{cls.indent_space}}"
+        else:
+            return "" + f"{'│ ':>{cls.indent_space}}"
+
+    @classmethod
     def to_parent_formant(cls, block):
         """
 

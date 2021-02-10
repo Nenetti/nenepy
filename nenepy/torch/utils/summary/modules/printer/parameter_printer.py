@@ -101,3 +101,8 @@ class ParameterPrinter(AbstractPrinter):
 
         """
         return len(parameter.bias_str())
+
+    @classmethod
+    def to_empty_format(cls):
+        print_format = f"{' ' * cls.max_weight_length} │ {' ' * cls.max_bias_length} │ {' ' * cls.max_train_length} │ {' ' * cls.max_untrain_length} "
+        return print_format

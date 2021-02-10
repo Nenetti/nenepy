@@ -88,18 +88,23 @@ class BlockPrinter(AbstractPrinter):
         time_format = self.time_printer.to_print_format()
 
         max_n_elements = max([len(input_formats), len(output_formats)])
+        s = 0
+        if max_n_elements > 1 or self.block.has_children():
+            s = 1
+            max_n_elements += 2
 
         architectures = [self.architecture_printer.to_child_formant(self.block)] * max_n_elements
         inputs = [""] * max_n_elements
         outputs = [""] * max_n_elements
-        parameters = [""] * max_n_elements
+        parameters = [self.parameter_printer.to_empty_format()] * max_n_elements
         times = [""] * max_n_elements
-
-        architectures[0] = architecture_format
-        inputs[:len(input_formats)] = input_formats
-        outputs[:len(output_formats)] = output_formats
-        parameters[0] = parameter_format
-        times[0] = time_format
+        if s == 1:
+            architectures[0] = self.architecture_printer.to_parent_formant2(self.block)
+        architectures[s] = architecture_format
+        inputs[s:s + len(input_formats)] = input_formats
+        outputs[s:s + len(output_formats)] = output_formats
+        parameters[s] = parameter_format
+        times[s] = time_format
 
         for i in range(max_n_elements):
             architecture_format = f"{architectures[i]:<{self.max_architecture_length}}"

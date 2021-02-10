@@ -6,7 +6,6 @@ from .value_dict import ValueDict
 class Output:
 
     def __init__(self, module, values):
-        self.raw_values = values
         self.values = self.analyze_values(values)
         self.n_nest = self.calc_nest(self.values)
 
@@ -32,6 +31,8 @@ class Output:
 
             return Value(v)
 
+        if not isinstance(values, dict):
+            values = {"": values}
         return recursive(values)
 
     @staticmethod

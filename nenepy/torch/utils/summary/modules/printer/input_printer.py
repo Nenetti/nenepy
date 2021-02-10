@@ -31,11 +31,7 @@ class InputPrinter(AbstractPrinter):
         cls.max_key_length = max([cls.calc_max_key_length(printer.module_in) for printer in printers])
 
     def to_print_formats(self):
-        return self.to_value_dict_format(self.module_in.values, self.max_key_length)
-
-    def to_print_format(self):
-        texts = self.to_value_dict_format(self.module_in.values, self.max_key_length)
-        return "\n".join(texts)
+        return self.to_value_dict_format(self.module_in.values, self.max_key_length, True)
 
     @staticmethod
     def calc_max_text_length(texts):
@@ -51,12 +47,13 @@ class InputPrinter(AbstractPrinter):
         return f"{key:>{adjustment_length}}: "
 
     @classmethod
-    def to_value_dict_format(cls, value_dict, max_key_length=None):
+    def to_value_dict_format(cls, value_dict, max_key_length=None, is_root=False):
         """
 
         Args:
             value_dict (ValueDict):
-            n_indent:
+            max_key_length (int):
+            is_root (bool):
 
         Returns:
 
@@ -64,11 +61,17 @@ class InputPrinter(AbstractPrinter):
         if max_key_length is None:
             max_key_length = cls.calc_max_text_length(value_dict.keys)
         formatted_keys = [cls.to_key_format(key, max_key_length) for key in value_dict.keys]
+        if len(formatted_keys) == 0:
+            return []
+
         formatted_key_length = len(formatted_keys[0])
 
         texts = []
         for i, (key, value) in enumerate(value_dict.items()):
             formatted_key = formatted_keys[i]
+            if len(value_dict.items()) == 1:
+                formatted_key = " " * len(formatted_key)
+
             if isinstance(value, Value):
                 value_format = value.to_adjusted_text(cls.max_each_dim_size)
                 text = f"{formatted_key}{value_format}"

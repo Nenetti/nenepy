@@ -38,6 +38,8 @@ class Value:
             return str(cls._tensor_to_str(value))
         elif cls._is_built_in_type(value):
             return f"<'{cls._to_type(value)}' {str(value)}>"
+        elif value is None:
+            return str(None)
         else:
             return cls._to_type(value)
 
