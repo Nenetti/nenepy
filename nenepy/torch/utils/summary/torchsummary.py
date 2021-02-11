@@ -114,6 +114,9 @@ class TorchSummary:
             for print_format in print_formats:
                 print(print_format)
 
+        print(BlockPrinter.to_print_header())
+        print(BlockPrinter.to_print_footer())
+
     def _get_max_directory_structure_length(self):
         max_length = 0
         for block in self.ordered_blocks:
@@ -122,42 +125,6 @@ class TorchSummary:
             max_length = max(max_length, len(text))
 
         return max_length
-
-    @staticmethod
-    def to_directories(root, directory, directory_length, max_length, append, is_last):
-        if root.depth == 0:
-            directories = [f"  {directory}"]
-        else:
-            if is_last:
-                directories = [f"{append}└ {directory}"]
-            else:
-                directories = [f"{append}├ {directory}"]
-
-        if is_last:
-            append = f"{append}     "
-        else:
-            append = f"{append}│    "
-
-        if len(root.blocks) > 0:
-            directories += [f"{append}│    "] * (max_length - len(directories))
-        else:
-            directories += [f"{append}    "] * (max_length - len(directories))
-
-        for i in range(len(directories)):
-            directories[i] = f"{directories[i]:<{directory_length}}"
-
-        return directories, append
-
-    def print_string(self, directory, input_text, output_text, weight_param_text, bias_param_text, param_per_text, is_train_text, is_untrain_text, time_text,
-                     is_boundary):
-
-        partition = "  │  "
-        if is_boundary:
-            partition = " -│- "
-
-        print(
-            f"{directory}{partition}{input_text}{partition}{output_text}{partition}{weight_param_text}{partition}{bias_param_text}{partition}{param_per_text}{partition}{is_train_text}{partition}{is_untrain_text}{partition}{time_text}  │ "
-        )
 
     # ==================================================================================================
     #

@@ -3,6 +3,7 @@ from nenepy.torch.utils.summary.modules.input import Input
 from nenepy.torch.utils.summary.modules.block import Block
 from nenepy.torch.utils.summary.modules.printer.abstract_printer import AbstractPrinter
 from nenepy.torch.utils.summary.modules.printer.input_printer import InputPrinter
+from nenepy.torch.utils.summary.modules.printer.memory_printer import MemoryPrinter
 from nenepy.torch.utils.summary.modules.printer.output_printer import OutputPrinter
 from nenepy.torch.utils.summary.modules.printer.parameter_printer import ParameterPrinter
 from nenepy.torch.utils.summary.modules.printer.time_printer import TimePrinter
@@ -25,6 +26,7 @@ class BlockPrinter(AbstractPrinter):
         self.output_printer = OutputPrinter(block.module.output)
         self.parameter_printer = ParameterPrinter(block.module.parameter)
         self.time_printer = TimePrinter(block.processing_time)
+        self.memory_printer = MemoryPrinter(block.module)
 
     @classmethod
     def to_adjust(cls, printers):
@@ -32,6 +34,7 @@ class BlockPrinter(AbstractPrinter):
         OutputPrinter.to_adjust([printer.output_printer for printer in printers])
         ParameterPrinter.to_adjust([printer.parameter_printer for printer in printers])
         TimePrinter.to_adjust([printer.time_printer for printer in printers])
+        MemoryPrinter.to_adjust([printer.memory_printer for printer in printers])
 
         cls.max_architecture_length = max([cls.calc_max_architecture_length(printer) for printer in printers])
         cls.max_input_length = max([cls.calc_max_input_length(printer) for printer in printers])
@@ -70,10 +73,11 @@ class BlockPrinter(AbstractPrinter):
         bar_output_format = "=" * cls.max_output_length
         bar_parameter_format = "=" * cls.max_parameter_length
         bar_time_format = "=" * cls.max_time_length
+        sub_bar_parameter_format = "-" * cls.max_architecture_length
 
         bar = f"{bar_architecture_format}=│={bar_input_format}=│={bar_output_format}=│={bar_parameter_format}=│={bar_time_format}=│"
         line1 = f"{empty_architecture_format} │ {empty_input_format} │ {empty_output_format} │ {parameter_format} │ {empty_time_format} │"
-        line2 = f"{architecture_format} │ {input_format} │ {output_format} │ {empty_parameter_format} │ {time_format} │"
+        line2 = f"{architecture_format} │ {input_format} │ {output_format} │ {sub_bar_parameter_format} │ {time_format} │"
         line3 = f"{empty_architecture_format} │ {empty_input_format} │ {empty_output_format} │  {parameter_sub_format} │ {empty_time_format} │"
 
         return "\n".join([bar, line1, line2, line3, bar])
@@ -117,6 +121,10 @@ class BlockPrinter(AbstractPrinter):
             print_formats.append(print_format)
 
         return print_formats
+
+    @staticmethod
+    def to_print_footer():
+        return MemoryPrinter.to_print_format()
 
     def calc_max_time_length(self):
         return len(self.time_printer.to_print_format())

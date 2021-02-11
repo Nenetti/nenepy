@@ -61,7 +61,7 @@ class ArchitecturePrinter(AbstractPrinter):
         if block.parent is not None:
             return recursive(block.parent, "") + f"{'│ ':>{cls.indent_space}}"
         else:
-            return "" + f"{'│ ':>{cls.indent_space}}"
+            return "" + f"{' ':>{cls.indent_space}}"
 
     @classmethod
     def to_parent_formant(cls, block):

@@ -11,51 +11,57 @@ class Parameter:
             module (nn.Module):
         """
         self.is_train = module.training
-        self.n_weight_params, self.weight_requires_grad = self.analyze_weight(module)
-        self.n_bias_params, self.bias_requires_grad = self.analyze_bias(module)
+        self.has_weight = self._has_weight(module)
+        self.has_bias = self._has_bias(module)
+        self.n_weight_params, self.weight_requires_grad = self._analyze_weight(module)
+        self.n_bias_params, self.bias_requires_grad = self._analyze_bias(module)
 
     def weight_str(self):
-        return f"{self.n_weight_params:,}"
+        if self.has_weight:
+            return f"{self.n_weight_params:,}"
+        else:
+            return "-"
 
     def bias_str(self):
-        return f"{self.n_bias_params:,}"
+        if self.has_bias:
+            return f"{self.n_bias_params:,}"
+        else:
+            return "-"
 
     @classmethod
-    def analyze_weight(cls, module):
-        weight_params = 0
-        requires_grad = False
-        if cls.has_weight(module):
-            weight_params = cls.calc_n_params(module.weight)
+    def _analyze_weight(cls, module):
+        if cls._has_weight(module):
+            n_params = cls._calc_n_params(module.weight)
             requires_grad = module.weight.requires_grad
+            return n_params, requires_grad
 
-        return weight_params, requires_grad
+        return 0, False
 
     @classmethod
-    def analyze_bias(cls, module):
-        bias_params = 0
-        requires_grad = False
-        if cls.has_bias(module):
-            bias_params = cls.calc_n_params(module.bias)
+    def _analyze_bias(cls, module):
+        if cls._has_bias(module):
+            n_params = cls._calc_n_params(module.bias)
             requires_grad = module.bias.requires_grad
+            return n_params, requires_grad
 
-        return bias_params, requires_grad
+        return 0, False
 
     @staticmethod
-    def has_weight(module):
-        if hasattr(module, "weight") and isinstance(module.weight, torch.Tensor):
+    def _has_weight(module):
+        if hasattr(module, "weight") and (module.weight is not None) and isinstance(module.weight, torch.Tensor):
             return True
 
         return False
 
     @staticmethod
-    def has_bias(module):
-        if hasattr(module, "bias") and isinstance(module.bias, torch.Tensor):
+    def _has_bias(module):
+        if hasattr(module, "bias") and (module.weight is not None) and isinstance(module.bias, torch.Tensor):
             return True
 
         return False
 
     @staticmethod
-    def calc_n_params(tensor):
+    def _calc_n_params(tensor):
         """
 
         Args:
