@@ -63,6 +63,8 @@ class Value:
     @staticmethod
     def _tensor_to_str(value):
         size = list(value.shape)
+        if len(size) == 0:
+            size = [1]
         # if len(size) > 0:
         #     size[0] = -1
 

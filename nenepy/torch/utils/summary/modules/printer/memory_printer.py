@@ -45,7 +45,6 @@ class MemoryPrinter(AbstractPrinter):
     _total_bias = 0
 
     def __init__(self, module):
-        # self.init(module)
         self.module = module
         pass
 
@@ -121,7 +120,7 @@ class MemoryPrinter(AbstractPrinter):
 
     @classmethod
     def to_value_format(cls, text, value):
-        return f"{text:>{cls._max_name_length}}: {(value * 4) / (10 ** 6):>{cls._max_value_length},}"
+        return f"{text:>{cls._max_name_length}}: {(value * 4) / (10 ** 6):>{cls._max_value_length},.2f}"
 
     @staticmethod
     def get_param_size(tensors):

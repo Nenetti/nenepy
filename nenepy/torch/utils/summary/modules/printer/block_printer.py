@@ -43,18 +43,27 @@ class BlockPrinter(AbstractPrinter):
         cls.max_time_length = max([cls.calc_max_time_length(printer) for printer in printers])
 
     @classmethod
-    def to_print_header(cls):
+    def to_parameter_headers(cls):
+        weight_repr = ParameterPrinter.to_weight_repr()
+        bias_repr = ParameterPrinter.to_bias_repr()
+        train_repr = ParameterPrinter.to_train_repr()
+        requires_grad_repr = ParameterPrinter.to_requires_grad_repr()
+
+        line1 = f"{ParameterPrinter.parameter_repr:^{cls.max_parameter_length}}"
+        line2 = cls.to_replace(line1, "-")
+        line3 = f"{cls.to_empty(weight_repr)} │ {cls.to_empty(bias_repr)} │ {cls.to_empty(train_repr)} │ {requires_grad_repr}"
+        line4 = f"{weight_repr} │ {bias_repr} │ {train_repr} │ {cls.to_replace(requires_grad_repr, '-')}"
+        line5 = f"{cls.to_empty(weight_repr)} │ {cls.to_empty(bias_repr)} │ {cls.to_empty(train_repr)} │ {ParameterPrinter.to_requires_grad_bool_repr()}"
+
+        return [line1, line2, line3, line4, line5]
+
+    @classmethod
+    def to_print_header(cls, reverse=False):
         architecture_repr = "Network Architecture"
         input_repr = "Input"
         output_repr = "Output"
         parameter_repr = ParameterPrinter.to_parameter_repr()
-        weight_repr = ParameterPrinter.to_weight_repr()
-        bias_repr = ParameterPrinter.to_bias_repr()
-        train_repr = ParameterPrinter.to_train_repr()
-        untrain_repr = ParameterPrinter.to_untrain_repr()
         time_repr = TimePrinter.to_time_repr()
-
-        parameter_sub_format = f"{weight_repr}   {bias_repr}   {train_repr}   {untrain_repr}"
 
         architecture_format = f"{architecture_repr:^{cls.max_architecture_length}}"
         input_format = f"{input_repr:^{cls.max_input_length}}"
@@ -65,7 +74,6 @@ class BlockPrinter(AbstractPrinter):
         empty_architecture_format = " " * cls.max_architecture_length
         empty_input_format = " " * cls.max_input_length
         empty_output_format = " " * cls.max_output_length
-        empty_parameter_format = " " * cls.max_parameter_length
         empty_time_format = " " * cls.max_time_length
 
         bar_architecture_format = "=" * cls.max_architecture_length
@@ -73,14 +81,24 @@ class BlockPrinter(AbstractPrinter):
         bar_output_format = "=" * cls.max_output_length
         bar_parameter_format = "=" * cls.max_parameter_length
         bar_time_format = "=" * cls.max_time_length
-        sub_bar_parameter_format = "-" * cls.max_architecture_length
+
+        parameter_headers = cls.to_parameter_headers()
 
         bar = f"{bar_architecture_format}=│={bar_input_format}=│={bar_output_format}=│={bar_parameter_format}=│={bar_time_format}=│"
-        line1 = f"{empty_architecture_format} │ {empty_input_format} │ {empty_output_format} │ {parameter_format} │ {empty_time_format} │"
-        line2 = f"{architecture_format} │ {input_format} │ {output_format} │ {sub_bar_parameter_format} │ {time_format} │"
-        line3 = f"{empty_architecture_format} │ {empty_input_format} │ {empty_output_format} │  {parameter_sub_format} │ {empty_time_format} │"
 
-        return "\n".join([bar, line1, line2, line3, bar])
+        line1 = f"{empty_architecture_format} │ {empty_input_format} │ {empty_output_format} │ {parameter_headers[0]} │ {empty_time_format} │"
+        line2 = f"{architecture_format} │ {input_format} │ {output_format} │ {parameter_headers[1]} │ {time_format} │"
+        line3 = f"{empty_architecture_format} │ {empty_input_format} │ {empty_output_format} │  {parameter_headers[2]} │ {empty_time_format} │"
+        line4 = f"{empty_architecture_format} │ {empty_input_format} │ {empty_output_format} │  {parameter_headers[3]} │ {empty_time_format} │"
+        line5 = f"{empty_architecture_format} │ {empty_input_format} │ {empty_output_format} │  {parameter_headers[4]} │ {empty_time_format} │"
+
+        lines = [bar, line1, line2, line3, line4, line5, bar]
+        # lines = [bar, line1, line2, line3, bar]
+
+        if reverse:
+            return "\n".join(reversed(lines))
+        else:
+            return "\n".join(lines)
 
     def to_print_format(self):
         print_formats = []

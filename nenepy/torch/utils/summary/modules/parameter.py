@@ -10,6 +10,7 @@ class Parameter:
         Args:
             module (nn.Module):
         """
+        self.module = module
         self.is_train = module.training
         self.has_weight = self._has_weight(module)
         self.has_bias = self._has_bias(module)

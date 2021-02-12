@@ -13,12 +13,14 @@ class ParameterPrinter(AbstractPrinter):
     weight_repr = "Weight"
     bias_repr = "Bias"
     train_repr = "Train"
-    untrain_repr = "Untrain"
+    requires_grad_repr = "Requires Grad"
 
     max_weight_length = len(weight_repr)
     max_bias_length = len(bias_repr)
     max_train_length = len(train_repr)
-    max_untrain_length = len(untrain_repr)
+    max_requires_grad = len(requires_grad_repr)
+    max_train_bool_repr = max_train_length
+    max_requires_grad_bool_repr = max_requires_grad
 
     def __init__(self, parameter):
         """
@@ -28,6 +30,10 @@ class ParameterPrinter(AbstractPrinter):
 
         """
         self.parameter = parameter
+
+    @classmethod
+    def bool_repr(cls):
+        return "Weight / Bias"
 
     @classmethod
     def to_parameter_repr(cls):
@@ -46,21 +52,26 @@ class ParameterPrinter(AbstractPrinter):
         return f"{cls.train_repr:^{cls.max_train_length}}"
 
     @classmethod
-    def to_untrain_repr(cls):
-        return f"{cls.untrain_repr:^{cls.max_untrain_length}}"
+    def to_requires_grad_repr(cls):
+        return f"{cls.requires_grad_repr:^{cls.max_requires_grad}}"
+
+    @classmethod
+    def to_requires_grad_bool_repr(cls):
+        return f"{cls.bool_repr():^{cls.max_requires_grad_bool_repr}}"
 
     @classmethod
     def to_adjust(cls, printers):
         cls.max_weight_length = max([cls.max_weight_length, max([cls.calc_max_weight_length(printer.parameter) for printer in printers])])
         cls.max_bias_length = max([cls.max_bias_length, max([cls.calc_max_bias_length(printer.parameter) for printer in printers])])
+        # cls.max_train_length = max_train_length
 
     def to_print_format(self):
         weight_format = f"{self.parameter.weight_str():>{self.max_weight_length}}"
         bias_format = f"{self.parameter.bias_str():>{self.max_bias_length}}"
         train_format = f"{self.to_train_format(self.parameter.is_train):^{self.max_train_length}}"
-        untrain_format = f"{self.to_train_format(not self.parameter.is_train):^{self.max_untrain_length}}"
+        requires_grad_format = f"{'':>{self.max_requires_grad}}"
 
-        print_format = f"{weight_format} │ {bias_format} │ {train_format} │ {untrain_format} "
+        print_format = f"{weight_format} │ {bias_format} │ {train_format} │ {requires_grad_format}"
         return print_format
 
     @staticmethod
@@ -104,5 +115,5 @@ class ParameterPrinter(AbstractPrinter):
 
     @classmethod
     def to_empty_format(cls):
-        print_format = f"{' ' * cls.max_weight_length} │ {' ' * cls.max_bias_length} │ {' ' * cls.max_train_length} │ {' ' * cls.max_untrain_length} "
+        print_format = f"{' ' * cls.max_weight_length} │ {' ' * cls.max_bias_length} │ {' ' * cls.max_train_length} "
         return print_format

@@ -12,3 +12,15 @@ class AbstractPrinter(metaclass=ABCMeta):
     def set_n_max_length(cls, print_format):
         if cls.n_max_length < len(print_format):
             cls.n_max_length = len(print_format)
+
+    @staticmethod
+    def to_replace(text, char=" "):
+        return char * len(text)
+
+    @staticmethod
+    def to_empty(text):
+        return " " * len(text)
+
+    @staticmethod
+    def generate_empty(length):
+        return " " * length

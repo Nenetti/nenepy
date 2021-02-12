@@ -8,6 +8,8 @@ import time
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.optim import Adam
+
 from .modules import *
 
 
@@ -38,8 +40,10 @@ class TorchSummary:
         self.is_exit = is_exit
         if is_validate:
             self.model.eval()
+            self.model.requires_grad_(False)
         else:
             self.model.train()
+            self.model.requires_grad_(True)
 
     def __call__(self, input_size, *args, **kwargs):
         # multiple inputs to the network
@@ -83,7 +87,15 @@ class TorchSummary:
         self.model.apply(self.register_hook)
 
         # make a forward pass
-        self.model(*x, **kwargs)
+        y = self.model(*x, **kwargs)
+        # print(y)
+        # (y["loss_classifier"] + y["loss_box_reg"] + y["loss_box_reg"] + y["loss_rpn_box_reg"]).backward()
+        # (y["loss_classifier"] - 1).sum().backward()
+        # print(input_tensor[0].grad)
+        # print(y[0]["boxes"].grad)
+        #
+        # print("A")
+        # time.sleep(1000)
 
         Block.calc_depth(self.roots)
         # print(BlockPrinter.get_input_max_tensor_length(self.ordered_blocks))
@@ -114,7 +126,7 @@ class TorchSummary:
             for print_format in print_formats:
                 print(print_format)
 
-        print(BlockPrinter.to_print_header())
+        print(BlockPrinter.to_print_header(reverse=True))
         print(BlockPrinter.to_print_footer())
 
     def _get_max_directory_structure_length(self):
