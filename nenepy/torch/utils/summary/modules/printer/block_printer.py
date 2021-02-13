@@ -87,10 +87,10 @@ class BlockPrinter(AbstractPrinter):
         bar = f"{bar_architecture_format}=│={bar_input_format}=│={bar_output_format}=│={bar_parameter_format}=│={bar_time_format}=│"
 
         line1 = f"{empty_architecture_format} │ {empty_input_format} │ {empty_output_format} │ {parameter_headers[0]} │ {empty_time_format} │"
-        line2 = f"{architecture_format} │ {input_format} │ {output_format} │ {parameter_headers[1]} │ {time_format} │"
-        line3 = f"{empty_architecture_format} │ {empty_input_format} │ {empty_output_format} │  {parameter_headers[2]} │ {empty_time_format} │"
-        line4 = f"{empty_architecture_format} │ {empty_input_format} │ {empty_output_format} │  {parameter_headers[3]} │ {empty_time_format} │"
-        line5 = f"{empty_architecture_format} │ {empty_input_format} │ {empty_output_format} │  {parameter_headers[4]} │ {empty_time_format} │"
+        line2 = f"{empty_architecture_format} │ {empty_input_format} │ {empty_output_format} │ {parameter_headers[1]} │ {time_format} │"
+        line3 = f"{architecture_format} │ {input_format} │ {output_format} │ {parameter_headers[2]} │ {empty_time_format} │"
+        line4 = f"{empty_architecture_format} │ {empty_input_format} │ {empty_output_format} │ {parameter_headers[3]} │ {empty_time_format} │"
+        line5 = f"{empty_architecture_format} │ {empty_input_format} │ {empty_output_format} │ {parameter_headers[4]} │ {empty_time_format} │"
 
         lines = [bar, line1, line2, line3, line4, line5, bar]
         # lines = [bar, line1, line2, line3, bar]
