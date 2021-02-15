@@ -1,14 +1,9 @@
-import inspect
-import sys
-from collections import OrderedDict, Counter
-from numbers import Number
-from time import sleep
 import time
+from collections import OrderedDict
+from time import sleep
 
-import numpy as np
 import torch
 import torch.nn as nn
-from torch.optim import Adam
 
 from .modules import *
 
@@ -31,11 +26,11 @@ class TorchSummary:
         self.call_forwards = {}
         self.called_modules = []
         self.calling_indexes = []
-        self.blocks = []
+        self.modules = []
         self.roots = []
         self.now_block = None
         self.n_blocks = 0
-        self.ordered_blocks = []
+        self.ordered_modules = []
         self.sleep_time = sleep_time
         self.is_exit = is_exit
         if is_validate:
@@ -62,10 +57,6 @@ class TorchSummary:
         # make a forward pass
         self.model(*x, **kwargs)
 
-        Block.calc_length()
-
-        self.calc_depth()
-
         # print(self.roots[0].output_texts)
         # sys.exit()
 
@@ -77,7 +68,7 @@ class TorchSummary:
 
     def forward_tensor(self, input_tensor, **kwargs):
         # batch_size of 2 for batchnorm
-        if isinstance(input_tensor, torch.Tensor):
+        if not isinstance(input_tensor, (tuple, list, dict, set)):
             input_tensor = [input_tensor]
 
         x = input_tensor
@@ -97,7 +88,7 @@ class TorchSummary:
         # print("A")
         # time.sleep(1000)
 
-        Block.calc_depth(self.roots)
+        Module.construction(self.roots)
         # print(BlockPrinter.get_input_max_tensor_length(self.ordered_blocks))
         # print(BlockPrinter.get_output_max_tensor_length(self.ordered_blocks))
 
@@ -113,7 +104,7 @@ class TorchSummary:
 
     def print_network(self):
         printers = []
-        for block in self.ordered_blocks:
+        for block in self.ordered_modules:
             printer = BlockPrinter(block)
             printers.append(printer)
 
@@ -128,15 +119,6 @@ class TorchSummary:
 
         print(BlockPrinter.to_print_header(reverse=True))
         print(BlockPrinter.to_print_footer())
-
-    def _get_max_directory_structure_length(self):
-        max_length = 0
-        for block in self.ordered_blocks:
-            index_space = " " * 4 * block.depth
-            text = f"{index_space}    {block.architecture_str}    "
-            max_length = max(max_length, len(text))
-
-        return max_length
 
     # ==================================================================================================
     #
@@ -165,12 +147,13 @@ class TorchSummary:
             module_in:
 
         """
-        block = Block()
-        if len(self.blocks) == 0:
-            self.roots.append(block)
+        summary_module = Module()
+        if len(self.modules) == 0:
+            summary_module.is_root = True
+            self.roots.append(summary_module)
 
-        self.ordered_blocks.append(block)
-        self.blocks.append((block, time.time()))
+        self.ordered_modules.append(summary_module)
+        self.modules.append((summary_module, time.time()))
 
     def hook(self, module, module_in, module_out):
         """
@@ -181,11 +164,11 @@ class TorchSummary:
             module_out:
 
         """
-        block, start_time = self.blocks.pop(-1)
-        block.processing_time = time.time() - start_time
-        block.module = Module(module, module_in, module_out)
+        summary_module, start_time = self.modules.pop(-1)
+        summary_module.processing_time = time.time() - start_time
+        summary_module.initialize(module, module_in, module_out)
 
-        if len(self.blocks) > 0:
-            parent_block = self.blocks[-1][0]
-            block.parent = parent_block
-            parent_block.child_blocks.append(block)
+        if len(self.modules) > 0:
+            parent_block = self.modules[-1][0]
+            parent_block.child_modules.append(summary_module)
+            summary_module.parent_module = parent_block

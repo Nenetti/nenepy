@@ -1,8 +1,5 @@
 from collections import Counter
 
-import torchvision
-from torchvision.models.detection.image_list import ImageList
-
 from .value import Value
 from .value_dict import ValueDict
 

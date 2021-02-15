@@ -1,6 +1,5 @@
 from nenepy.torch.utils.summary.modules.printer.architecture_printer import ArchitecturePrinter
 from nenepy.torch.utils.summary.modules.input import Input
-from nenepy.torch.utils.summary.modules.block import Block
 from nenepy.torch.utils.summary.modules.printer.abstract_printer import AbstractPrinter
 from nenepy.torch.utils.summary.modules.printer.input_printer import InputPrinter
 from nenepy.torch.utils.summary.modules.printer.memory_printer import MemoryPrinter
@@ -19,14 +18,14 @@ class BlockPrinter(AbstractPrinter):
     max_parameter_length = 0
     max_time_length = 0
 
-    def __init__(self, block):
-        self.block = block
-        self.architecture_printer = ArchitecturePrinter(block)
-        self.input_printer = InputPrinter(block.module.input)
-        self.output_printer = OutputPrinter(block.module.output)
-        self.parameter_printer = ParameterPrinter(block.module.parameter)
-        self.time_printer = TimePrinter(block.processing_time)
-        self.memory_printer = MemoryPrinter(block.module)
+    def __init__(self, module):
+        self.block = module
+        self.architecture_printer = ArchitecturePrinter(module)
+        self.input_printer = InputPrinter(module.input)
+        self.output_printer = OutputPrinter(module.output)
+        self.parameter_printer = ParameterPrinter(module.parameter)
+        self.time_printer = TimePrinter(module.processing_time)
+        self.memory_printer = MemoryPrinter(module)
 
     @classmethod
     def to_adjust(cls, printers):
@@ -222,14 +221,3 @@ class BlockPrinter(AbstractPrinter):
             raise TypeError()
 
         return 0
-
-    @staticmethod
-    def calc(printers):
-        """
-
-        Args:
-            printers (list[BlockPrinter]):
-
-        Returns:
-
-        """

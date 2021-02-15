@@ -18,13 +18,20 @@ img = torch.from_numpy(img)
 img = img.permute((2, 0, 1)).unsqueeze(0)
 img = img.cuda() / 255.0
 
+boxes = torch.tensor([[0, 0, 100, 100]]).cuda()
+labels = torch.ones(1, dtype=torch.int64).cuda()
+
+label = {"boxes": boxes, "labels": labels}
+
+input_tensor = [img, [label]]
+
 model = fasterrcnn_resnet50_fpn(pretrained=True)
 model.cuda()
 model.eval()
 
 # summary = Summary(model, batch_size=1, is_validate=True)
-summary = TorchSummary(model, batch_size=1, is_validate=True, is_exit=True)
-summary.forward_tensor(img)
+summary = TorchSummary(model, batch_size=1, is_validate=False, is_exit=True)
+summary.forward_tensor(input_tensor)
 sys.exit()
 #
 # out = model(img)

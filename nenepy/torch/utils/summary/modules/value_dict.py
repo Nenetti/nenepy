@@ -1,7 +1,3 @@
-from collections import Counter
-from .value import Value
-
-
 class ValueDict:
 
     def __init__(self, value_dict):
@@ -28,11 +24,3 @@ class ValueDict:
     @staticmethod
     def _to_text(values):
         return str([(key, value.text) for key, value in values.items()])
-
-    @staticmethod
-    def is_dict(values):
-        return isinstance(values, dict)
-
-    @staticmethod
-    def _to_type(value):
-        return str(value.__class__.__name__)

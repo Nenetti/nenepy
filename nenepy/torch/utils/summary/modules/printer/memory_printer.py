@@ -1,13 +1,9 @@
-import torch
+import numpy as np
 
-from nenepy.torch.utils.summary.modules.input import Input
-from nenepy.torch.utils.summary.modules.block import Block
 from nenepy.torch.utils.summary.modules.printer.abstract_printer import AbstractPrinter
 from nenepy.torch.utils.summary.modules.value import Value
-from nenepy.torch.utils.summary.modules.value_list import ValueList
 from nenepy.torch.utils.summary.modules.value_dict import ValueDict
-from nenepy.torch.utils.summary.modules.parameter import Parameter
-import numpy as np
+from nenepy.torch.utils.summary.modules.value_list import ValueList
 
 
 class MemoryPrinter(AbstractPrinter):
