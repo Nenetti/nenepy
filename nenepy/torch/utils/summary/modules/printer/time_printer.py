@@ -16,6 +16,16 @@ class TimePrinter(AbstractPrinter):
         """
         self.time = time
 
+    def to_print_format(self):
+        time_str = self.to_time_str(self.time)
+        time_format = f"{time_str:>{self.max_length}}"
+        return time_format
+
+    # ==================================================================================================
+    #
+    #   Class Method
+    #
+    # ==================================================================================================
     @classmethod
     def to_adjust(cls, printers):
         cls.max_length = max([cls.max_length, max([cls.calc_max_length(printer.time) for printer in printers])])
@@ -23,41 +33,6 @@ class TimePrinter(AbstractPrinter):
     @classmethod
     def to_time_repr(cls):
         return f"{cls.time_repr:^{cls.max_length}}"
-
-    def to_print_format(self):
-        time_str = self.to_time_str(self.time)
-        time_format = f"{time_str:>{self.max_length}}"
-        return time_format
-
-    @staticmethod
-    def to_time_str(time):
-        t = time * 1000
-        if int(t) > 0:
-            return f"{t:.2f}"
-        else:
-            return f"{t:.2f}"[1:]
-
-    @staticmethod
-    def to_train_format(is_train):
-        """
-
-        Args:
-            is_train (bool):
-
-        Returns:
-
-        """
-        if is_train:
-            return "✓"
-        else:
-            return " "
-
-    @staticmethod
-    def calc_max_text_length(texts):
-        if len(texts) > 0:
-            return max([len(text) for text in texts])
-        else:
-            return 0
 
     @classmethod
     def calc_max_length(cls, time):
@@ -70,3 +45,17 @@ class TimePrinter(AbstractPrinter):
 
         """
         return len(cls.to_time_str(time))
+
+    # ==================================================================================================
+    #
+    #   Public Method
+    #
+    # ==================================================================================================
+
+    @staticmethod
+    def to_time_str(time):
+        t = time * 1000
+        if int(t) > 0:
+            return f"{t:.2f}"
+        else:
+            return f"{t:.2f}"[1:]

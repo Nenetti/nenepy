@@ -29,6 +29,11 @@ class Parameter:
         else:
             return "-"
 
+    # ==================================================================================================
+    #
+    #   Class Method
+    #
+    # ==================================================================================================
     @classmethod
     def _analyze_weight(cls, module):
         if cls._has_weight(module):
@@ -47,6 +52,11 @@ class Parameter:
 
         return 0, False
 
+    # ==================================================================================================
+    #
+    #   Static Method
+    #
+    # ==================================================================================================
     @staticmethod
     def _has_weight(module):
         if hasattr(module, "weight") and (module.weight is not None) and isinstance(module.weight, torch.Tensor):

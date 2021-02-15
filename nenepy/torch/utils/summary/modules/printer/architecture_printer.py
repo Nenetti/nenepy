@@ -16,6 +16,11 @@ class ArchitecturePrinter(AbstractPrinter):
     def to_print_format(self):
         return self.text_format
 
+    # ==================================================================================================
+    #
+    #   Class Method
+    #
+    # ==================================================================================================
     @classmethod
     def to_child_formant(cls, module):
         """
@@ -107,6 +112,11 @@ class ArchitecturePrinter(AbstractPrinter):
             directory_type = cls.to_directory_type(module)
             return f"{directory_type:>{cls.indent_space}}"
 
+    # ==================================================================================================
+    #
+    #   Static Method
+    #
+    # ==================================================================================================
     @staticmethod
     def to_directory_type(module):
         if module.is_root:

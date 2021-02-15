@@ -9,6 +9,11 @@ class Input(Output):
     def __init__(self, module, values):
         super(Input, self).__init__(module, self.to_argument_dict(module, values))
 
+    # ==================================================================================================
+    #
+    #   Static Method
+    #
+    # ==================================================================================================
     @staticmethod
     def to_argument_dict(module, values):
         input_dict = OrderedDict()

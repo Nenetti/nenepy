@@ -23,27 +23,19 @@ class InputPrinter(AbstractPrinter):
         self.text_format = self.to_text_format(module_in)
         self.set_n_max_length(self.text_format)
 
+    def to_print_formats(self):
+        return self.to_value_dict_format(self.module_in.values, self.max_key_length, True)
+
+    # ==================================================================================================
+    #
+    #   Class Method
+    #
+    # ==================================================================================================
     @classmethod
     def to_adjust(cls, printers):
         cls.max_n_dims = max([cls.calc_max_n_dims(printer.module_in) for printer in printers])
         cls.max_each_dim_size = np.max(np.stack([cls.calc_max_each_dim_size(printer.module_in) for printer in printers], axis=0), axis=0)
         cls.max_key_length = max([cls.calc_max_key_length(printer.module_in) for printer in printers])
-
-    def to_print_formats(self):
-        return self.to_value_dict_format(self.module_in.values, self.max_key_length, True)
-
-    @staticmethod
-    def calc_max_text_length(texts):
-        if len(texts) > 0:
-            return max([len(text) for text in texts])
-        else:
-            return 0
-
-    @staticmethod
-    def to_key_format(key, adjustment_length=None):
-        if adjustment_length is None:
-            adjustment_length = len(key)
-        return f"{key:>{adjustment_length}}: "
 
     @classmethod
     def to_value_dict_format(cls, value_dict, max_key_length=None, is_root=False):
@@ -137,28 +129,6 @@ class InputPrinter(AbstractPrinter):
 
         return texts
 
-    @staticmethod
-    def to_list_char_front(index, size):
-        if size <= 1:
-            return "[ "
-        if index == 0:
-            return "┌ "
-        elif index == size - 1:
-            return "└ "
-        else:
-            return "│ "
-
-    @staticmethod
-    def to_list_char_back(index, size):
-        if size <= 1:
-            return " ]"
-        if index == 0:
-            return " ┐"
-        elif index == size - 1:
-            return " ┘"
-        else:
-            return " │"
-
     @classmethod
     def to_text_format(cls, module_in):
         return str(module_in.values)
@@ -230,3 +200,43 @@ class InputPrinter(AbstractPrinter):
                 return np.max(np.stack([cls._calc_max_each_dim_size_recursive(v, max_n_dims) for v in value.values], axis=0), axis=0)
         else:
             raise TypeError()
+
+    # ==================================================================================================
+    #
+    #   Static Method
+    #
+    # ==================================================================================================
+    @staticmethod
+    def calc_max_text_length(texts):
+        if len(texts) > 0:
+            return max([len(text) for text in texts])
+        else:
+            return 0
+
+    @staticmethod
+    def to_key_format(key, adjustment_length=None):
+        if adjustment_length is None:
+            adjustment_length = len(key)
+        return f"{key:>{adjustment_length}}: "
+
+    @staticmethod
+    def to_list_char_front(index, size):
+        if size <= 1:
+            return "[ "
+        if index == 0:
+            return "┌ "
+        elif index == size - 1:
+            return "└ "
+        else:
+            return "│ "
+
+    @staticmethod
+    def to_list_char_back(index, size):
+        if size <= 1:
+            return " ]"
+        if index == 0:
+            return " ┐"
+        elif index == size - 1:
+            return " ┘"
+        else:
+            return " │"

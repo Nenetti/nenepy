@@ -44,16 +44,11 @@ class MemoryPrinter(AbstractPrinter):
         self.module = module
         pass
 
-    @classmethod
-    def get_all_tensors(cls, printers):
-        input_tensors = []
-        output_tensors = []
-        for printer in printers:
-            input_tensors += cls._get_all_tensors(printer.module.input.values)
-            output_tensors += cls._get_all_tensors(printer.module.output.values)
-
-        return input_tensors, output_tensors
-
+    # ==================================================================================================
+    #
+    #   Class Method
+    #
+    # ==================================================================================================
     @classmethod
     def init(cls, input_tensors, output_tensors):
         total_input_size = cls.get_param_size(input_tensors)
@@ -79,7 +74,7 @@ class MemoryPrinter(AbstractPrinter):
 
     @classmethod
     def to_adjust(cls, printers):
-        input_tensors, output_tensors = cls.get_all_tensors(printers)
+        input_tensors, output_tensors = cls._get_all_tensors(printers)
         cls.init(input_tensors, output_tensors)
         [cls.init2(printer.module) for printer in printers]
         cls._max_name_length = cls.get_max_text_length([
@@ -95,28 +90,65 @@ class MemoryPrinter(AbstractPrinter):
     @classmethod
     def to_print_format(cls):
         texts = [
-            cls.to_value_format(cls._total_param_repr, cls._total_param),
+            cls._to_value_format(cls._total_param_repr, cls._total_param),
             "",
-            cls.to_value_format(cls._trainable_params_repr, cls._total_trainable_param),
-            cls.to_value_format(cls._non_trainable_params_repr, cls._total_non_trainable_param),
-            cls.to_value_format(cls._trainable_weight_params_repr, cls._trainable_weight),
-            cls.to_value_format(cls._non_trainable_weight_params_repr, cls._non_trainable_weight),
-            cls.to_value_format(cls._trainable_bias_params_repr, cls._trainable_bias),
-            cls.to_value_format(cls._non_trainable_bias_params_repr, cls._non_trainable_bias),
+            cls._to_value_format(cls._trainable_params_repr, cls._total_trainable_param),
+            cls._to_value_format(cls._non_trainable_params_repr, cls._total_non_trainable_param),
+            cls._to_value_format(cls._trainable_weight_params_repr, cls._trainable_weight),
+            cls._to_value_format(cls._non_trainable_weight_params_repr, cls._non_trainable_weight),
+            cls._to_value_format(cls._trainable_bias_params_repr, cls._trainable_bias),
+            cls._to_value_format(cls._non_trainable_bias_params_repr, cls._non_trainable_bias),
             "",
-            cls.to_value_format(cls._input_size_per_batch_repr, cls._total_input_size),
-            cls.to_value_format(cls._forward_size_per_batch_repr, cls._total_output_size),
+            cls._to_value_format(cls._input_size_per_batch_repr, cls._total_input_size),
+            cls._to_value_format(cls._forward_size_per_batch_repr, cls._total_output_size),
             "",
-            cls.to_value_format(cls._total_input_size_repr, cls._total_input_size),
-            cls.to_value_format(cls._total_forward_size_repr, cls._total_output_size),
-            cls.to_value_format(cls._total_size_repr, cls._total_param),
+            cls._to_value_format(cls._total_input_size_repr, cls._total_input_size),
+            cls._to_value_format(cls._total_forward_size_repr, cls._total_output_size),
+            cls._to_value_format(cls._total_size_repr, cls._total_param),
         ]
 
         return "\n".join(texts)
 
     @classmethod
-    def to_value_format(cls, text, value):
+    def _to_value_format(cls, text, value):
         return f"{text:>{cls._max_name_length}}: {(value * 4) / (10 ** 6):>{cls._max_value_length},.2f}"
+
+    @classmethod
+    def _get_all_tensors(cls, printers):
+        input_tensors = []
+        output_tensors = []
+        for printer in printers:
+            input_tensors += cls._get_all_tensors_recursive(printer.module.input.values)
+            output_tensors += cls._get_all_tensors_recursive(printer.module.output.values)
+
+        return input_tensors, output_tensors
+
+    @classmethod
+    def _get_all_tensors_recursive(cls, values):
+        def recursive(value):
+            if isinstance(value, Value):
+                if value.is_tensor:
+                    return value.value
+                return []
+            elif isinstance(value, (ValueList, ValueDict)):
+                x = []
+                for v in value.values:
+                    y = recursive(v)
+                    if isinstance(y, list):
+                        x += y
+                    else:
+                        x.append(y)
+                return x
+            else:
+                raise TypeError()
+
+        return [*recursive(values)]
+
+    # ==================================================================================================
+    #
+    #   Static Method
+    #
+    # ==================================================================================================
 
     @staticmethod
     def get_param_size(tensors):
@@ -151,24 +183,3 @@ class MemoryPrinter(AbstractPrinter):
         if len(texts) > 0:
             return max([len(text) for text in texts])
         return 0
-
-    @classmethod
-    def _get_all_tensors(cls, values):
-        def recursive(value):
-            if isinstance(value, Value):
-                if value.is_tensor:
-                    return value.value
-                return []
-            elif isinstance(value, (ValueList, ValueDict)):
-                x = []
-                for v in value.values:
-                    y = recursive(v)
-                    if isinstance(y, list):
-                        x += y
-                    else:
-                        x.append(y)
-                return x
-            else:
-                raise TypeError()
-
-        return [*recursive(values)]

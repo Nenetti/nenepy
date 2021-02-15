@@ -10,11 +10,6 @@ class Value:
         self.text = self._to_text(value)
         self.type = self._to_type(value)
 
-    # ==================================================================================================
-    #
-    #   Class Method
-    #
-    # ==================================================================================================
     def to_adjusted_text(self, each_dim_size):
         """
 
@@ -32,6 +27,11 @@ class Value:
         else:
             return self.text
 
+    # ==================================================================================================
+    #
+    #   Class Method
+    #
+    # ==================================================================================================
     @classmethod
     def _to_text(cls, value):
         if isinstance(value, torch.Tensor):
@@ -43,22 +43,22 @@ class Value:
         else:
             return cls._to_type(value)
 
-    @staticmethod
-    def _is_tensor(value):
-        if isinstance(value, torch.Tensor):
-            return True
-        return False
+    @classmethod
+    def to_shape_list(cls, value):
+        if cls._is_tensor(value):
+            return cls._tensor_to_str(value)
+        return None
 
     # ==================================================================================================
     #
     #   Static Method
     #
     # ==================================================================================================
-    @classmethod
-    def to_shape_list(cls, value):
-        if cls._is_tensor(value):
-            return cls._tensor_to_str(value)
-        return None
+    @staticmethod
+    def _is_tensor(value):
+        if isinstance(value, torch.Tensor):
+            return True
+        return False
 
     @staticmethod
     def _tensor_to_str(value):

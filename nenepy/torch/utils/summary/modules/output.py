@@ -9,17 +9,11 @@ class Output:
         self.values = self.analyze_values(values)
         self.n_nest = self.calc_nest(self.values)
 
-    @staticmethod
-    def calc_nest(values):
-        def recursive(value):
-            if isinstance(value, (ValueList, ValueDict)):
-                if len(value.values) > 0:
-                    return max([recursive(v) for v in value.values]) + 1
-
-            return 0
-
-        return recursive(values)
-
+    # ==================================================================================================
+    #
+    #   Class Method
+    #
+    # ==================================================================================================
     @classmethod
     def analyze_values(cls, values):
         def recursive(v):
@@ -33,6 +27,22 @@ class Output:
 
         if not isinstance(values, dict):
             values = {"": values}
+        return recursive(values)
+
+    # ==================================================================================================
+    #
+    #   Static Method
+    #
+    # ==================================================================================================
+    @staticmethod
+    def calc_nest(values):
+        def recursive(value):
+            if isinstance(value, (ValueList, ValueDict)):
+                if len(value.values) > 0:
+                    return max([recursive(v) for v in value.values]) + 1
+
+            return 0
+
         return recursive(values)
 
     @staticmethod
