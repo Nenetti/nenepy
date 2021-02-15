@@ -27,6 +27,73 @@ class BlockPrinter(AbstractPrinter):
         self.time_printer = TimePrinter(module.processing_time)
         self.memory_printer = MemoryPrinter(module)
 
+    # ==================================================================================================
+    #
+    #   Public Method
+    #
+    # ==================================================================================================
+    def to_print_format(self):
+        print_formats = []
+
+        architecture_format = self.architecture_printer.to_print_format()
+        input_formats = self.input_printer.to_print_formats()
+        output_formats = self.output_printer.to_print_formats()
+        parameter_format = self.parameter_printer.to_print_format()
+        time_format = self.time_printer.to_print_format()
+
+        max_n_elements = max([len(input_formats), len(output_formats)])
+        s = 0
+        if max_n_elements > 1 or self.block.has_children():
+            s = 1
+            max_n_elements += 2
+
+        architectures = [self.architecture_printer.to_top_formant()] * max_n_elements
+        inputs = [""] * max_n_elements
+        outputs = [""] * max_n_elements
+        parameters = [self.parameter_printer.to_empty_format()] * max_n_elements
+        times = [""] * max_n_elements
+        if s == 1:
+            architectures[0] = self.architecture_printer.to_bottom_format()
+        architectures[s] = architecture_format
+        inputs[s:s + len(input_formats)] = input_formats
+        outputs[s:s + len(output_formats)] = output_formats
+        parameters[s] = parameter_format
+        times[s] = time_format
+
+        for i in range(max_n_elements):
+            architecture_format = f"{architectures[i]:<{self.max_architecture_length}}"
+            input_format = f"{inputs[i]:<{self.max_input_length}}"
+            output_format = f"{outputs[i]:<{self.max_output_length}}"
+            parameter_format = f"{parameters[i]:<{self.max_parameter_length}}"
+            time_format = f"{times[i]:<{self.max_time_length}}"
+
+            print_format = f"{architecture_format} │ {input_format} │ {output_format} │ {parameter_format} │ {time_format} │"
+            print_formats.append(print_format)
+
+        return print_formats
+
+    def calc_max_time_length(self):
+        return len(self.time_printer.to_print_format())
+
+    def calc_max_parameter_length(self):
+        return len(self.parameter_printer.to_print_format())
+
+    def calc_max_output_length(self):
+        texts = self.output_printer.to_print_formats()
+        return max([len(text) for text in texts], default=0)
+
+    def calc_max_input_length(self):
+        texts = self.input_printer.to_print_formats()
+        return max([len(text) for text in texts], default=0)
+
+    def calc_max_architecture_length(self):
+        return len(self.architecture_printer.to_print_format())
+
+    # ==================================================================================================
+    #
+    #   Class Method
+    #
+    # ==================================================================================================
     @classmethod
     def to_adjust(cls, printers):
         InputPrinter.to_adjust([printer.input_printer for printer in printers])
@@ -99,69 +166,11 @@ class BlockPrinter(AbstractPrinter):
         else:
             return "\n".join(lines)
 
-    def to_print_format(self):
-        print_formats = []
-
-        architecture_format = self.architecture_printer.to_print_format()
-        input_formats = self.input_printer.to_print_formats()
-        output_formats = self.output_printer.to_print_formats()
-        parameter_format = self.parameter_printer.to_print_format()
-        time_format = self.time_printer.to_print_format()
-
-        max_n_elements = max([len(input_formats), len(output_formats)])
-        s = 0
-        if max_n_elements > 1 or self.block.has_children():
-            s = 1
-            max_n_elements += 2
-
-        architectures = [self.architecture_printer.to_child_formant(self.block)] * max_n_elements
-        inputs = [""] * max_n_elements
-        outputs = [""] * max_n_elements
-        parameters = [self.parameter_printer.to_empty_format()] * max_n_elements
-        times = [""] * max_n_elements
-        if s == 1:
-            architectures[0] = self.architecture_printer.to_parent_formant2(self.block)
-        architectures[s] = architecture_format
-        inputs[s:s + len(input_formats)] = input_formats
-        outputs[s:s + len(output_formats)] = output_formats
-        parameters[s] = parameter_format
-        times[s] = time_format
-
-        for i in range(max_n_elements):
-            architecture_format = f"{architectures[i]:<{self.max_architecture_length}}"
-            input_format = f"{inputs[i]:<{self.max_input_length}}"
-            output_format = f"{outputs[i]:<{self.max_output_length}}"
-            parameter_format = f"{parameters[i]:<{self.max_parameter_length}}"
-            time_format = f"{times[i]:<{self.max_time_length}}"
-
-            print_format = f"{architecture_format} │ {input_format} │ {output_format} │ {parameter_format} │ {time_format} │"
-            print_formats.append(print_format)
-
-        return print_formats
-
+    # ==================================================================================================
+    #
+    #   Static Method
+    #
+    # ==================================================================================================
     @staticmethod
     def to_print_footer():
         return MemoryPrinter.to_print_format()
-
-    def calc_max_time_length(self):
-        return len(self.time_printer.to_print_format())
-
-    def calc_max_parameter_length(self):
-        return len(self.parameter_printer.to_print_format())
-
-    def calc_max_output_length(self):
-        texts = self.output_printer.to_print_formats()
-        if len(texts) > 0:
-            return max([len(text) for text in texts])
-        else:
-            return 0
-
-    def calc_max_input_length(self):
-        texts = self.input_printer.to_print_formats()
-        if len(texts) > 0:
-            return max([len(text) for text in texts])
-        else:
-            return 0
-
-    def calc_max_architecture_length(self):
-        return len(self.architecture_printer.to_print_format())

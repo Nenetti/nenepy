@@ -17,6 +17,11 @@ class Parameter:
         self.n_weight_params, self.weight_requires_grad = self._analyze_weight(module)
         self.n_bias_params, self.bias_requires_grad = self._analyze_bias(module)
 
+    # ==================================================================================================
+    #
+    #   Public Method
+    #
+    # ==================================================================================================
     def weight_str(self):
         if self.has_weight:
             return f"{self.n_weight_params:,}"
@@ -66,19 +71,11 @@ class Parameter:
 
     @staticmethod
     def _has_bias(module):
-        if hasattr(module, "bias") and (module.weight is not None) and isinstance(module.bias, torch.Tensor):
+        if hasattr(module, "bias") and (module.bias is not None) and isinstance(module.bias, torch.Tensor):
             return True
 
         return False
 
     @staticmethod
     def _calc_n_params(tensor):
-        """
-
-        Args:
-            tensor (torch.Tensor):
-
-        Returns:
-
-        """
         return np.prod(tensor.size())

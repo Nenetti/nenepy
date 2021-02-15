@@ -36,25 +36,3 @@ class Module:
     @property
     def module_name(self):
         return self.module.__class__.__name__
-
-    # ==================================================================================================
-    #
-    #   Static Method
-    #
-    # ==================================================================================================
-    @staticmethod
-    def construction(roots):
-        """
-        Args:
-            roots (list[Block]):
-
-        """
-
-        def recursive(block):
-            if len(block.child_modules) > 0:
-                for b in block.child_modules:
-                    recursive(b)
-                block.child_modules[-1].is_last_module_in_sequential = True
-
-        for root in roots:
-            recursive(root)

@@ -88,7 +88,6 @@ class TorchSummary:
         # print("A")
         # time.sleep(1000)
 
-        Module.construction(self.roots)
         # print(BlockPrinter.get_input_max_tensor_length(self.ordered_blocks))
         # print(BlockPrinter.get_output_max_tensor_length(self.ordered_blocks))
 
@@ -101,6 +100,9 @@ class TorchSummary:
         # remove these hooks
         for h in self.hooks:
             h.remove()
+
+    def adjust(self):
+        pass
 
     def print_network(self):
         printers = []
@@ -167,6 +169,9 @@ class TorchSummary:
         summary_module, start_time = self.modules.pop(-1)
         summary_module.processing_time = time.time() - start_time
         summary_module.initialize(module, module_in, module_out)
+
+        if len(summary_module.child_modules) > 0:
+            summary_module.child_modules[-1].is_last_module_in_sequential = True
 
         if len(self.modules) > 0:
             parent_block = self.modules[-1][0]

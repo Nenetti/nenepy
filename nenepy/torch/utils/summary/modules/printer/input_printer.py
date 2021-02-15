@@ -109,23 +109,22 @@ class InputPrinter(AbstractPrinter):
             else:
                 raise TypeError()
 
-        size = len(texts)
-
+        brackets = cls._get_list_brackets(len(texts))
         for i, text in enumerate(texts):
-            list_char = cls.to_list_char_front(i, size)
+            list_char = brackets[i][0]
             if i == 0:
                 type_format = f"{type:>{key_length}}"
             else:
                 type_format = f"{'':>{key_length}}"
 
-            texts[i] = f"{type_format}{list_char}{text}"
+            texts[i] = f"{type_format}{list_char} {text}"
 
         max_length = cls.calc_max_text_length(texts)
 
         for i, text in enumerate(texts):
-            list_char = cls.to_list_char_back(i, size)
+            list_char = brackets[i][1]
             text = f"{text:<{max_length}}"
-            texts[i] = f"{text}{list_char}"
+            texts[i] = f"{text} {list_char}"
 
         return texts
 
@@ -219,24 +218,17 @@ class InputPrinter(AbstractPrinter):
             adjustment_length = len(key)
         return f"{key:>{adjustment_length}}: "
 
-    @staticmethod
-    def to_list_char_front(index, size):
-        if size <= 1:
-            return "[ "
-        if index == 0:
-            return "┌ "
-        elif index == size - 1:
-            return "└ "
-        else:
-            return "│ "
+    @classmethod
+    def _get_list_brackets(cls, size):
+        return [cls._get_list_bracket(i, size) for i in range(size)]
 
     @staticmethod
-    def to_list_char_back(index, size):
+    def _get_list_bracket(index, size):
         if size <= 1:
-            return " ]"
+            return ["[", "]"]
         if index == 0:
-            return " ┐"
+            return ["┌", "┐"]
         elif index == size - 1:
-            return " ┘"
+            return ["└", "┘"]
         else:
-            return " │"
+            return ["│", "│"]

@@ -7,7 +7,6 @@ class Output:
 
     def __init__(self, module, values):
         self.values = self.analyze_values(values)
-        self.n_nest = self.calc_nest(self.values)
 
     # ==================================================================================================
     #
@@ -20,10 +19,10 @@ class Output:
             if cls.is_iterable(v):
                 if isinstance(v, dict):
                     return ValueDict(dict((key, recursive(v)) for key, v in v.items()))
-
-                return ValueList([recursive(v) for v in v])
-
-            return Value(v)
+                else:
+                    return ValueList([recursive(v) for v in v])
+            else:
+                return Value(v)
 
         if not isinstance(values, dict):
             values = {"": values}
@@ -34,16 +33,6 @@ class Output:
     #   Static Method
     #
     # ==================================================================================================
-    @staticmethod
-    def calc_nest(values):
-        def recursive(value):
-            if isinstance(value, (ValueList, ValueDict)):
-                if len(value.values) > 0:
-                    return max([recursive(v) for v in value.values]) + 1
-
-            return 0
-
-        return recursive(values)
 
     @staticmethod
     def is_iterable(value):

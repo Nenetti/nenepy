@@ -6,7 +6,7 @@ class Value:
     def __init__(self, value):
         self.value = value
         self.is_tensor = self._is_tensor(value)
-        self.shapes = self.to_shape_list(value)
+        self.shapes = self._to_shape_list(value)
         self.text = self._to_text(value)
         self.type = self._to_type(value)
 
@@ -44,7 +44,7 @@ class Value:
             return cls._to_type(value)
 
     @classmethod
-    def to_shape_list(cls, value):
+    def _to_shape_list(cls, value):
         if cls._is_tensor(value):
             return cls._tensor_to_str(value)
         return None
@@ -65,9 +65,6 @@ class Value:
         size = list(value.shape)
         if len(size) == 0:
             size = [1]
-        # if len(size) > 0:
-        #     size[0] = -1
-
         return list(map(str, size))
 
     @staticmethod
