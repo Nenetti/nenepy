@@ -1,3 +1,4 @@
+import sys
 import time
 from collections import OrderedDict
 from time import sleep
@@ -6,6 +7,8 @@ import torch
 import torch.nn as nn
 
 from .modules import *
+from .modules.printer.input_printer import InputPrinter
+from .modules.printer.output_printer import OutputPrinter
 
 
 class TorchSummary:
@@ -93,7 +96,7 @@ class TorchSummary:
 
         # self.get_input_max_tensor_length(self.block.module.input)
         # Architecture.init_constructions(self.roots)
-
+        self.adjust()
         self.print_network()
 
         sleep(self.sleep_time)
@@ -102,7 +105,28 @@ class TorchSummary:
             h.remove()
 
     def adjust(self):
-        pass
+        outputs = [module.output for module in self.ordered_modules]
+        tensors = Output.get_all_tensors(outputs)
+        max_n_dims = Value.calc_max_n_dims(tensors)
+        max_each_dim_size = Value.calc_max_each_dim_size(tensors, max_n_dims)
+
+        OutputPrinter.max_n_dims = max_n_dims
+        OutputPrinter.max_each_dim_size = max_each_dim_size
+
+        # print(max_n_dims)
+        # print(max_each_dim_size)
+        # sys.exit()
+        inputs = [module.input for module in self.ordered_modules]
+        tensors = Input.get_all_tensors(inputs)
+        max_n_dims = Value.calc_max_n_dims(tensors)
+        max_each_dim_size = Value.calc_max_each_dim_size(tensors, max_n_dims)
+
+        InputPrinter.max_each_dim_size = max_each_dim_size
+        InputPrinter.max_key_length = Input.get_max_dict_key_length(outputs)
+        print(InputPrinter.max_key_length)
+
+        # for i, tensor in enumerate(tensors):
+        #     print(i, tensor.shape)
 
     def print_network(self):
         printers = []

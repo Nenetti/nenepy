@@ -92,7 +92,7 @@ class BlockPrinter(AbstractPrinter):
     # ==================================================================================================
     @classmethod
     def to_adjust(cls, printers):
-        InputPrinter.to_adjust([printer.input_printer for printer in printers])
+        # InputPrinter.to_adjust([printer.input_printer for printer in printers])
         OutputPrinter.to_adjust([printer.output_printer for printer in printers])
         ParameterPrinter.to_adjust([printer.parameter_printer for printer in printers])
         TimePrinter.to_adjust([printer.time_printer for printer in printers])

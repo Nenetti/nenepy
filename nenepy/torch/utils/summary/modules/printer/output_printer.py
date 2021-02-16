@@ -37,8 +37,8 @@ class OutputPrinter(AbstractPrinter):
     # ==================================================================================================
     @classmethod
     def to_adjust(cls, printers):
-        cls.max_n_dims = max([cls.calc_max_n_dims(printer.module_out) for printer in printers])
-        cls.max_each_dim_size = np.max(np.stack([cls.calc_max_each_dim_size(printer.module_out) for printer in printers], axis=0), axis=0)
+        # cls.max_n_dims = max([cls.calc_max_n_dims(printer.module_out) for printer in printers])
+        # cls.max_each_dim_size = np.max(np.stack([cls.calc_max_each_dim_size(printer.module_out) for printer in printers], axis=0), axis=0)
         cls.max_key_length = max([cls.calc_max_key_length(printer.module_out) for printer in printers])
 
     @classmethod
@@ -150,68 +150,6 @@ class OutputPrinter(AbstractPrinter):
         if isinstance(module_out.values, dict):
             return max([len(key) for key in module_out.values.keys()], default=0)
         return 0
-
-    @classmethod
-    def calc_max_n_dims(cls, module_out):
-        """
-
-        Args:
-            module_out (Input):
-
-        Returns:
-
-        """
-        return cls._calc_max_n_dims_recursive(module_out.values)
-
-    @classmethod
-    def _calc_max_n_dims_recursive(cls, value):
-        if isinstance(value, Value):
-            if value.is_tensor:
-                return len(value.shapes)
-        elif cls._is_iterable(value):
-            if isinstance(value, dict):
-                return max([cls._calc_max_n_dims_recursive(v) for v in value.values()], default=0)
-            else:
-                return max([cls._calc_max_n_dims_recursive(v) for v in value], default=0)
-        else:
-            raise TypeError()
-
-        return 0
-
-    @classmethod
-    def calc_max_each_dim_size(cls, module_out):
-        """
-
-        Args:
-            module_out (Input):
-
-        Returns:
-
-        """
-        each_dim_size = cls._calc_max_each_dim_size_recursive(module_out.values, cls.max_n_dims)
-        return each_dim_size
-
-    @classmethod
-    def _calc_max_each_dim_size_recursive(cls, value, max_n_dims):
-        if isinstance(value, Value):
-            if value.is_tensor:
-                each_size = np.zeros(shape=max_n_dims, dtype=np.int)
-                for i in range(len(value.shapes)):
-                    each_size[i] = len(value.shapes[i])
-                return each_size
-            else:
-                return np.zeros(shape=max_n_dims, dtype=np.int)
-
-        elif cls._is_iterable(value):
-            if len(value) > 0:
-                if isinstance(value, dict):
-                    return np.max(np.stack([cls._calc_max_each_dim_size_recursive(v, max_n_dims) for v in value.values()], axis=0), axis=0)
-                else:
-                    return np.max(np.stack([cls._calc_max_each_dim_size_recursive(v, max_n_dims) for v in value], axis=0), axis=0)
-            else:
-                return np.zeros(shape=max_n_dims, dtype=np.int)
-        else:
-            raise TypeError()
 
     # ==================================================================================================
     #
