@@ -1,7 +1,7 @@
-from nenepy.torch.utils.summary.modules.printer.abstract_printer import AbstractPrinter
+from nenepy.torch.utils.summary.modules import AbstractModule
 
 
-class ArchitecturePrinter(AbstractPrinter):
+class NetworkArchitecture(AbstractModule):
 
     def __init__(self, module):
         """
@@ -10,6 +10,7 @@ class ArchitecturePrinter(AbstractPrinter):
             module (Module):
 
         """
+        super(NetworkArchitecture, self).__init__()
         self.module = module
         self.text = self._to_text_format(module)
         self.set_n_max_length(self.text)
@@ -19,7 +20,8 @@ class ArchitecturePrinter(AbstractPrinter):
     #   Public Method
     #
     # ==================================================================================================
-    def to_print_format(self):
+    @property
+    def print_formats(self):
         return self.text
 
     def to_top_formant(self):

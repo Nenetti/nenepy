@@ -1,10 +1,9 @@
 import numpy as np
 
-from nenepy.torch.utils.summary.modules.printer.abstract_printer import AbstractPrinter
-from nenepy.torch.utils.summary.modules.value import Value
+from nenepy.torch.utils.summary.modules import Value, AbstractModule, Input, Output
 
 
-class MemoryPrinter(AbstractPrinter):
+class Memory(AbstractModule):
     _total_param_repr = "Total params"
     _trainable_params_repr = "Trainable params"
     _non_trainable_params_repr = "Non-Trainable params"
@@ -39,8 +38,29 @@ class MemoryPrinter(AbstractPrinter):
     _total_bias = 0
 
     def __init__(self, module):
+        super(Memory, self).__init__()
         self.module = module
-        pass
+
+    @classmethod
+    def generate_adjusted_texts(cls):
+        texts = [
+            cls._to_value_format(cls._total_param_repr, cls._total_param),
+            "",
+            cls._to_value_format(cls._trainable_params_repr, cls._total_trainable_param),
+            cls._to_value_format(cls._non_trainable_params_repr, cls._total_non_trainable_param),
+            cls._to_value_format(cls._trainable_weight_params_repr, cls._trainable_weight),
+            cls._to_value_format(cls._non_trainable_weight_params_repr, cls._non_trainable_weight),
+            cls._to_value_format(cls._trainable_bias_params_repr, cls._trainable_bias),
+            cls._to_value_format(cls._non_trainable_bias_params_repr, cls._non_trainable_bias),
+            "",
+            cls._to_value_format(cls._input_size_per_batch_repr, cls._total_input_size),
+            cls._to_value_format(cls._forward_size_per_batch_repr, cls._total_output_size),
+            "",
+            cls._to_value_format(cls._total_input_size_repr, cls._total_input_size),
+            cls._to_value_format(cls._total_forward_size_repr, cls._total_output_size),
+            cls._to_value_format(cls._total_size_repr, cls._total_param),
+        ]
+        return "\n".join(texts)
 
     # ==================================================================================================
     #
@@ -71,18 +91,20 @@ class MemoryPrinter(AbstractPrinter):
         cls._total_bias += trainable_bias + non_trainable_bias
 
     @classmethod
-    def to_adjust(cls, printers):
-        input_tensors, output_tensors = cls._get_all_tensors(printers)
+    def to_adjust(cls, modules):
+        input_tensors = Input.get_all_tensors([module.input for module in modules])
+        output_tensors = Output.get_all_tensors([module.output for module in modules])
+
         cls.init(input_tensors, output_tensors)
-        [cls.init2(printer.module) for printer in printers]
+        [cls.init2(module) for module in modules]
         cls._max_name_length = cls.get_max_text_length([
             cls._total_param_repr, cls._trainable_params_repr, cls._non_trainable_params_repr, cls._input_size_per_batch_repr,
             cls._trainable_weight_params_repr, cls._non_trainable_weight_params_repr, cls._trainable_bias_params_repr, cls._non_trainable_bias_params_repr,
             cls._forward_size_per_batch_repr, cls._total_input_size_repr, cls._total_forward_size_repr, cls._total_params_size_repr, cls._total_size_repr
         ])
         cls._max_value_length = max([
-            cls.get_max_text_length([str(printer._total_size), str(printer._total_output_size), str(printer._total_param)]) for printer in
-            printers
+            cls.get_max_text_length([str(cls._total_size), str(cls._total_output_size), str(cls._total_param)]) for module in
+            modules
         ])
 
     @classmethod

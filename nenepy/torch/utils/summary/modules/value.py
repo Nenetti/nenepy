@@ -1,8 +1,12 @@
+import itertools
+
 import torch
 import numpy as np
 
+from . import AbstractModule
 
-class Value:
+
+class Value(AbstractModule):
 
     def __init__(self, value):
         self.value = value
@@ -75,26 +79,18 @@ class Value:
     #   Static Method
     #
     # ==================================================================================================
-    @staticmethod
-    def _is_tensor(value):
-        if isinstance(value, torch.Tensor):
-            return True
-        return False
+    @classmethod
+    def get_all_tensors(cls, values):
+        def recursive(value):
+            if cls._is_iterable(value):
+                if isinstance(value, dict):
+                    return itertools.chain.from_iterable([recursive(v) for v in value.values()])
+                else:
+                    return itertools.chain.from_iterable([recursive(v) for v in value])
+            elif isinstance(value, Value):
+                return [value.value] if value.is_tensor else []
+            else:
+                print(type(value))
+                raise TypeError()
 
-    @staticmethod
-    def _tensor_to_str(value):
-        size = list(value.shape)
-        if len(size) == 0:
-            size = [1]
-        return list(map(str, size))
-
-    @staticmethod
-    def _to_type(value):
-        return str(value.__class__.__name__)
-
-    @staticmethod
-    def _is_built_in_type(value):
-        if isinstance(value, (bool, int, float, complex, str)):
-            return True
-
-        return False
+        return recursive(values)

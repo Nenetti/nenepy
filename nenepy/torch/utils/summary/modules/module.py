@@ -3,6 +3,8 @@ from torch import nn
 from .input import Input
 from .output import Output
 from .parameter import Parameter
+from . import NetworkArchitecture
+from .time import Time
 
 
 class Module:
@@ -17,6 +19,8 @@ class Module:
         self.input = None
         self.output = None
         self.parameter = None
+        self.network_architecture = None
+        self.time = None
 
         self.parent_module = None
         self.child_modules = []
@@ -27,8 +31,12 @@ class Module:
     def initialize(self, module, module_in, module_out):
         self.module = module
         self.input = Input(module, module_in)
-        self.output = Output(module, module_out)
+        self.output = Output(module_out)
         self.parameter = Parameter(module)
+
+    def adjust(self):
+        self.network_architecture = NetworkArchitecture(self)
+        self.time = Time(self.processing_time)
 
     def has_children(self):
         return len(self.child_modules) > 0

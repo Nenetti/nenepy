@@ -1,24 +1,47 @@
 import itertools
 
+from . import AbstractModule
 from .value import Value
 
 
-class Output:
+class Output(AbstractModule):
+    _max_key_length = 0
+    _max_each_dim_size = 0
 
-    def __init__(self, module, values):
+    def __init__(self, values):
         self.values = self._analyze_values(values)
         self.adjusted_texts = None
+
+    # ==================================================================================================
+    #
+    #   Public Method
+    #
+    # ==================================================================================================
+    @property
+    def print_formats(self):
+        return self._iterable_to_text_formats(self.values, self._max_key_length)
+
+    @classmethod
+    def adjust(cls, modules):
+        outputs = [module.output for module in modules]
+        tensors = cls.get_all_tensors(outputs)
+        max_n_dims = Value.calc_max_n_dims(tensors)
+        cls._max_each_dim_size = Value.calc_max_each_dim_size(tensors, max_n_dims)
+        cls._max_key_length = cls.get_max_dict_key_length(outputs)
+
+    @classmethod
+    def get_all_tensors(cls, outputs):
+        return list(itertools.chain.from_iterable([Value.get_all_tensors(output.values) for output in outputs]))
 
     # ==================================================================================================
     #
     #   Class Method
     #
     # ==================================================================================================
-    # def to_adjust(self, max_n_dims, max_each_dim_size, max_key_length):
     @classmethod
     def _analyze_values(cls, values):
         def recursive(v):
-            if cls.is_iterable(v):
+            if cls._is_iterable(v):
                 if isinstance(v, dict):
                     return dict((key, recursive(v)) for key, v in v.items())
                 else:
@@ -28,41 +51,86 @@ class Output:
 
         if not isinstance(values, dict):
             values = {"": values}
+
         return recursive(values)
 
     # ==================================================================================================
     #
-    #   Static Method
+    #   Class Method
     #
     # ==================================================================================================
-    @staticmethod
-    def is_iterable(value):
-        if isinstance(value, (tuple, list, set, dict)):
-            return True
-        return False
+    @classmethod
+    def _iterable_to_text_formats(cls, value, key_length=None):
+        if len(value) == 0:
+            return []
+        if isinstance(value, dict):
+            return cls.dict_to_text(value, key_length)
+        else:
+            return cls._list_to_text(value)
 
     @classmethod
-    def get_all_tensors(cls, outputs):
-        def recursive(value):
-            if cls.is_iterable(value):
-                if isinstance(value, dict):
-                    return itertools.chain.from_iterable([recursive(v) for v in value.values()])
-                else:
-                    return itertools.chain.from_iterable([recursive(v) for v in value])
-            elif isinstance(value, Value):
-                return [value.value] if value.is_tensor else []
+    def _list_to_text(cls, value_list):
+        value_type = f"<{cls._to_type(value_list)}>"
+        key_length = len(value_type)
+        texts = []
+        for value in value_list:
+            if cls._is_iterable(value):
+                texts += cls._iterable_to_text_formats(value)
             else:
-                raise TypeError()
+                texts += [value.to_adjusted_text(cls._max_each_dim_size)]
 
-        output_tensors = []
-        for output in outputs:
-            output_tensors += recursive(output.values)
+        brackets = cls._get_list_brackets(len(texts))
+        max_length = cls._get_max_text_length(texts)
 
-        return output_tensors
+        for i, (text, bracket) in enumerate(zip(texts, brackets)):
+            bracket_top, bracket_bottom = bracket
+            if i == 0:
+                type_format = value_type
+            else:
+                type_format = f"{'':>{key_length}}"
+
+            texts[i] = f"{type_format}{bracket_top} {text:<{max_length}} {bracket_bottom}"
+
+        return texts
 
     @classmethod
-    def get_max_dict_key_length(cls, outputs):
-        def func(dict):
-            return max([len(key) for key in dict.keys()], default=0)
+    def dict_to_text(cls, value_dict, key_length=None):
 
-        return max([func(output.values) if isinstance(output.values, dict) else 0 for output in outputs], default=0)
+        if key_length is None:
+            key_length = cls._get_max_dict_key_length(value_dict)
+
+        adjusted_keys = cls._to_adjust_length(value_dict.keys(), key_length)
+
+        texts = []
+        for key, value in zip(adjusted_keys, value_dict.values()):
+            if len(value_dict) == 1:
+                key = f"{cls.to_empty(key)}"
+
+            if cls._is_iterable(value):
+                formatted_values = cls._iterable_to_text_formats(value)
+                child_texts = [""] * len(formatted_values)
+                for i, formatted_value in enumerate(formatted_values):
+                    if i == 0:
+                        child_texts[i] = f"{key}{formatted_value}"
+                    else:
+                        child_texts[i] = f"{cls.to_empty(key)}{formatted_value}"
+                texts += child_texts
+            else:
+                value_format = value.to_adjusted_text(cls._max_each_dim_size)
+                text = f"{key}{value_format}"
+                texts.append(text)
+        return texts
+
+    @classmethod
+    def _get_list_brackets(cls, size):
+        def get_list_bracket(index, size):
+            if size <= 1:
+                return ["[", "]"]
+            if index == 0:
+                return ["┌", "┐"]
+            elif index == size - 1:
+                return ["└", "┘"]
+            else:
+                return ["│", "│"]
+
+        return [get_list_bracket(i, size) for i in range(size)]

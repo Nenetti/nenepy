@@ -1,5 +1,4 @@
 import sys
-import time
 from collections import OrderedDict
 from time import sleep
 
@@ -7,8 +6,8 @@ import torch
 import torch.nn as nn
 
 from .modules import *
-from .modules.printer.input_printer import InputPrinter
-from .modules.printer.output_printer import OutputPrinter
+from .modules.printer.block_printer import BlockPrinter
+import time
 
 
 class TorchSummary:
@@ -105,36 +104,38 @@ class TorchSummary:
             h.remove()
 
     def adjust(self):
-        outputs = [module.output for module in self.ordered_modules]
-        tensors = Output.get_all_tensors(outputs)
-        max_n_dims = Value.calc_max_n_dims(tensors)
-        max_each_dim_size = Value.calc_max_each_dim_size(tensors, max_n_dims)
-
-        OutputPrinter.max_n_dims = max_n_dims
-        OutputPrinter.max_each_dim_size = max_each_dim_size
-
-        # print(max_n_dims)
-        # print(max_each_dim_size)
-        # sys.exit()
-        inputs = [module.input for module in self.ordered_modules]
-        tensors = Input.get_all_tensors(inputs)
-        max_n_dims = Value.calc_max_n_dims(tensors)
-        max_each_dim_size = Value.calc_max_each_dim_size(tensors, max_n_dims)
-
-        InputPrinter.max_each_dim_size = max_each_dim_size
-        InputPrinter.max_key_length = Input.get_max_dict_key_length(outputs)
-        print(InputPrinter.max_key_length)
+        # outputs = [module.output for module in self.ordered_modules]
+        # tensors = Output.get_all_tensors(outputs)
+        # max_n_dims = Value.calc_max_n_dims(tensors)
+        # max_each_dim_size = Value.calc_max_each_dim_size(tensors, max_n_dims)
+        #
+        # OutputPrinter.max_n_dims = max_n_dims
+        # OutputPrinter.max_each_dim_size = max_each_dim_size
+        #
+        # # print(max_n_dims)
+        # # print(max_each_dim_size)
+        # # sys.exit()
+        # inputs = [module.input for module in self.ordered_modules]
+        # tensors = Input.get_all_tensors(inputs)
+        # max_n_dims = Value.calc_max_n_dims(tensors)
+        # max_each_dim_size = Value.calc_max_each_dim_size(tensors, max_n_dims)
+        #
+        # InputPrinter.max_each_dim_size = max_each_dim_size
+        # InputPrinter.max_key_length = Input.get_max_dict_key_length(outputs)
+        # print(InputPrinter.max_key_length)
 
         # for i, tensor in enumerate(tensors):
         #     print(i, tensor.shape)
+        pass
 
     def print_network(self):
         printers = []
-        for block in self.ordered_modules:
-            printer = BlockPrinter(block)
+        for module in self.ordered_modules:
+            module.adjust()
+            printer = BlockPrinter(module)
             printers.append(printer)
 
-        BlockPrinter.to_adjust(printers)
+        BlockPrinter.to_adjust(self.ordered_modules, printers)
 
         print(BlockPrinter.to_print_header())
 
