@@ -1,7 +1,4 @@
-from abc import ABCMeta, abstractmethod
-from nenepy.torch.utils.summary.modules.value import Value
-from nenepy.torch.utils.summary.modules.value_list import ValueList
-from nenepy.torch.utils.summary.modules.value_dict import ValueDict
+from abc import ABCMeta
 
 
 class AbstractPrinter(metaclass=ABCMeta):
@@ -24,3 +21,9 @@ class AbstractPrinter(metaclass=ABCMeta):
     @staticmethod
     def generate_empty(length):
         return " " * length
+
+    @staticmethod
+    def _is_iterable(value):
+        if isinstance(value, (tuple, list, set, dict)):
+            return True
+        return False

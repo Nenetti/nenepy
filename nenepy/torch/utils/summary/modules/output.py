@@ -1,6 +1,4 @@
 from .value import Value
-from .value_list import ValueList
-from .value_dict import ValueDict
 
 
 class Output:
@@ -18,9 +16,9 @@ class Output:
         def recursive(v):
             if cls.is_iterable(v):
                 if isinstance(v, dict):
-                    return ValueDict(dict((key, recursive(v)) for key, v in v.items()))
+                    return dict((key, recursive(v)) for key, v in v.items())
                 else:
-                    return ValueList([recursive(v) for v in v])
+                    return [recursive(v) for v in v]
             else:
                 return Value(v)
 
@@ -33,7 +31,6 @@ class Output:
     #   Static Method
     #
     # ==================================================================================================
-
     @staticmethod
     def is_iterable(value):
         if isinstance(value, (tuple, list, set, dict)):

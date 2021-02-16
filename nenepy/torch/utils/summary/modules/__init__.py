@@ -5,4 +5,3 @@ from .module import Module
 from .output import Output
 from .parameter import Parameter
 from .value import Value
-from .value_list import ValueList

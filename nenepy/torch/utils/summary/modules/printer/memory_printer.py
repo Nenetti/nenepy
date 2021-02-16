@@ -2,8 +2,6 @@ import numpy as np
 
 from nenepy.torch.utils.summary.modules.printer.abstract_printer import AbstractPrinter
 from nenepy.torch.utils.summary.modules.value import Value
-from nenepy.torch.utils.summary.modules.value_dict import ValueDict
-from nenepy.torch.utils.summary.modules.value_list import ValueList
 
 
 class MemoryPrinter(AbstractPrinter):
@@ -130,15 +128,25 @@ class MemoryPrinter(AbstractPrinter):
                 if value.is_tensor:
                     return value.value
                 return []
-            elif isinstance(value, (ValueList, ValueDict)):
-                x = []
-                for v in value.values:
-                    y = recursive(v)
-                    if isinstance(y, list):
-                        x += y
-                    else:
-                        x.append(y)
-                return x
+            elif cls._is_iterable(value):
+                if isinstance(value, dict):
+                    x = []
+                    for v in value.values():
+                        y = recursive(v)
+                        if isinstance(y, list):
+                            x += y
+                        else:
+                            x.append(y)
+                    return x
+                else:
+                    x = []
+                    for v in value:
+                        y = recursive(v)
+                        if isinstance(y, list):
+                            x += y
+                        else:
+                            x.append(y)
+                    return x
             else:
                 raise TypeError()
 

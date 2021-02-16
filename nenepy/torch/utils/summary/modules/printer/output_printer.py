@@ -3,8 +3,6 @@ import numpy as np
 from nenepy.torch.utils.summary.modules.input import Input
 from nenepy.torch.utils.summary.modules.printer.abstract_printer import AbstractPrinter
 from nenepy.torch.utils.summary.modules.value import Value
-from nenepy.torch.utils.summary.modules.value_dict import ValueDict
-from nenepy.torch.utils.summary.modules.value_list import ValueList
 
 
 class OutputPrinter(AbstractPrinter):
@@ -21,13 +19,11 @@ class OutputPrinter(AbstractPrinter):
 
         """
         self.module_out = module_out
-        self.text_format = self.to_text_format(module_out)
-        self.set_n_max_length(self.text_format)
 
     def to_print_formats(self):
-        if isinstance(self.module_out.values, ValueDict):
+        if isinstance(self.module_out.values, dict):
             return self.to_value_dict_format(self.module_out.values, self.max_key_length)
-        elif isinstance(self.module_out.values, ValueList):
+        elif isinstance(self.module_out.values, list):
             return self.to_value_list_format(self.module_out.values)
         elif isinstance(self.module_out.values, Value):
             return [self.module_out.values.to_adjusted_text(self.max_each_dim_size)]
@@ -58,8 +54,8 @@ class OutputPrinter(AbstractPrinter):
 
         """
         if max_key_length is None:
-            max_key_length = cls.calc_max_text_length(value_dict.keys)
-        formatted_keys = [cls.to_key_format(key, max_key_length) for key in value_dict.keys]
+            max_key_length = cls.calc_max_text_length(value_dict.keys())
+        formatted_keys = [cls.to_key_format(key, max_key_length) for key in value_dict.keys()]
         if len(formatted_keys) == 0:
             return []
 
@@ -75,8 +71,8 @@ class OutputPrinter(AbstractPrinter):
                 value_format = value.to_adjusted_text(cls.max_each_dim_size)
                 text = f"{formatted_key}{value_format}"
                 texts.append(text)
-            elif isinstance(value, (ValueList, ValueDict)):
-                if isinstance(value, ValueList):
+            elif cls._is_iterable(value):
+                if isinstance(value, list):
                     formatted_values = cls.to_value_list_format(value)
                 else:
                     formatted_values = cls.to_value_dict_format(value)
@@ -103,16 +99,16 @@ class OutputPrinter(AbstractPrinter):
         Returns:
 
         """
-        type = f"<{value_list.type}>"
-        key_length = len(type)
+        type2 = f"<{type(value_list)}>"
+        key_length = len(type2)
         texts = []
-        for i, value in enumerate(value_list.values):
+        for i, value in enumerate(value_list):
             if isinstance(value, Value):
                 value_format = value.to_adjusted_text(cls.max_each_dim_size)
                 texts.append(value_format)
-            elif isinstance(value, ValueList):
+            elif isinstance(value, list):
                 texts += cls.to_value_list_format(value)
-            elif isinstance(value, ValueDict):
+            elif isinstance(value, dict):
                 texts += cls.to_value_dict_format(value)
             else:
                 raise TypeError()
@@ -122,7 +118,7 @@ class OutputPrinter(AbstractPrinter):
         for i, text in enumerate(texts):
             list_char = cls.to_list_char_front(i, size)
             if i == 0:
-                type_format = f"{type:>{key_length}}"
+                type_format = f"{type2:>{key_length}}"
             else:
                 type_format = f"{'':>{key_length}}"
 
@@ -151,8 +147,8 @@ class OutputPrinter(AbstractPrinter):
         Returns:
 
         """
-        if isinstance(module_out.values, ValueDict):
-            return max([len(key) for key in module_out.values.value_dict.keys()])
+        if isinstance(module_out.values, dict):
+            return max([len(key) for key in module_out.values.keys()], default=0)
         return 0
 
     @classmethod
@@ -172,9 +168,11 @@ class OutputPrinter(AbstractPrinter):
         if isinstance(value, Value):
             if value.is_tensor:
                 return len(value.shapes)
-        elif isinstance(value, (ValueList, ValueDict)):
-            if len(value.values) > 0:
-                return max([cls._calc_max_n_dims_recursive(v) for v in value.values])
+        elif cls._is_iterable(value):
+            if isinstance(value, dict):
+                return max([cls._calc_max_n_dims_recursive(v) for v in value.values()], default=0)
+            else:
+                return max([cls._calc_max_n_dims_recursive(v) for v in value], default=0)
         else:
             raise TypeError()
 
@@ -204,12 +202,14 @@ class OutputPrinter(AbstractPrinter):
             else:
                 return np.zeros(shape=max_n_dims, dtype=np.int)
 
-        elif isinstance(value, (ValueList, ValueDict)):
-            if len(value.values) > 0:
-                return np.max(np.stack([cls._calc_max_each_dim_size_recursive(v, max_n_dims) for v in value.values], axis=0), axis=0)
+        elif cls._is_iterable(value):
+            if len(value) > 0:
+                if isinstance(value, dict):
+                    return np.max(np.stack([cls._calc_max_each_dim_size_recursive(v, max_n_dims) for v in value.values()], axis=0), axis=0)
+                else:
+                    return np.max(np.stack([cls._calc_max_each_dim_size_recursive(v, max_n_dims) for v in value], axis=0), axis=0)
             else:
                 return np.zeros(shape=max_n_dims, dtype=np.int)
-
         else:
             raise TypeError()
 
