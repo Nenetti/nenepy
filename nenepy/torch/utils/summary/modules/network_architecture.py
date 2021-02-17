@@ -1,4 +1,4 @@
-from nenepy.torch.utils.summary.modules import AbstractModule
+from .abstract_module import AbstractModule
 
 
 class NetworkArchitecture(AbstractModule):
@@ -12,19 +12,20 @@ class NetworkArchitecture(AbstractModule):
         """
         super(NetworkArchitecture, self).__init__()
         self.module = module
-        self.text = self._to_text_format(module)
-        self.set_n_max_length(self.text)
 
     # ==================================================================================================
     #
     #   Public Method
     #
     # ==================================================================================================
-    @property
-    def print_formats(self):
-        return self.text
+    @classmethod
+    def adjust(cls, architectures):
+        cls.n_max_length = cls._get_max_text_length([architecture.to_formatted_text() for architecture in architectures])
 
-    def to_top_formant(self):
+    def to_formatted_text(self):
+        return self._to_text_format(self.module)
+
+    def to_bottom_formant(self):
         def recursive(m):
             if m is not None and m.parent_module is not None:
                 parent_format = recursive(m.parent_module)
@@ -38,7 +39,7 @@ class NetworkArchitecture(AbstractModule):
         else:
             return recursive(self.module)
 
-    def to_bottom_format(self):
+    def to_top_format(self):
         def recursive(m):
             if m is not None and m.parent_module is not None:
                 parent_format = recursive(m.parent_module)

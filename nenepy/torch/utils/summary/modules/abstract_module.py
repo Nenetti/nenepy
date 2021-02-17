@@ -1,4 +1,12 @@
+from enum import Enum, auto
+
 import torch
+
+
+class Align(Enum):
+    Center = auto()
+    Left = auto()
+    Right = auto()
 
 
 class AbstractModule:
@@ -7,9 +15,6 @@ class AbstractModule:
 
     def __init__(self):
         self.adjusted_texts = None
-
-    def generate_adjusted_texts(self):
-        raise NotImplementedError()
 
     @classmethod
     def set_n_max_length(cls, print_format):
@@ -78,3 +83,43 @@ class AbstractModule:
             return max([len(key) for key in dict.keys()], default=0)
 
         return max([func(output.values) if isinstance(output.values, dict) else 0 for output in outputs], default=0)
+
+    @staticmethod
+    def _replace(text, char=" "):
+        return char * len(text)
+
+    @staticmethod
+    def _empty(text=" "):
+        return " " * len(text)
+
+    @staticmethod
+    def _fill(char, length):
+        return char * length
+
+    @staticmethod
+    def _align(text, length, mode):
+        """
+        Args:
+            text (str):
+            length:
+            mode:
+
+        Returns:
+
+        """
+        if mode == Align.Left:
+            return text.ljust(length)
+        elif mode == Align.Right:
+            return text.rjust(length)
+        elif mode == Align.Center:
+            return text.center(length)
+        else:
+            raise TypeError()
+
+    @staticmethod
+    def _to_empty_text(length):
+        return " " * length
+
+    @staticmethod
+    def _init_list(init_value, size):
+        return [init_value] * size

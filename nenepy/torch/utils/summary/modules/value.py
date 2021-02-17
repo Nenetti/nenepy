@@ -1,20 +1,20 @@
 import itertools
 
-import torch
 import numpy as np
+import torch
 
-from . import AbstractModule
+from .abstract_module import AbstractModule
 
 
 class Value(AbstractModule):
 
     def __init__(self, value):
+        super(Value, self).__init__()
         self.value = value
         self.is_tensor = self._is_tensor(value)
         self.sizes = self._to_shape_list(value)
         self.text = self._to_text(value)
         self.type = self._to_type(value)
-        self.adjusted_text = None
 
     def to_adjusted_text(self, each_dim_size):
         """
@@ -60,7 +60,7 @@ class Value(AbstractModule):
         elif value is None:
             return str(None)
         else:
-            return cls._to_type(value)
+            return f"{cls._to_type(value)}()"
 
     @classmethod
     def _to_shape_list(cls, value):

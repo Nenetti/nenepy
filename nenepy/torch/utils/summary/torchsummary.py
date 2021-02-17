@@ -1,13 +1,12 @@
-import sys
+import time
 from collections import OrderedDict
 from time import sleep
 
 import torch
 import torch.nn as nn
 
-from .modules import *
-from .modules.printer.block_printer import BlockPrinter
-import time
+from nenepy.torch.utils.summary.modules.block_printer import BlockPrinter
+from nenepy.torch.utils.summary.modules.module import Module
 
 
 class TorchSummary:
@@ -131,21 +130,23 @@ class TorchSummary:
     def print_network(self):
         printers = []
         for module in self.ordered_modules:
-            module.adjust()
             printer = BlockPrinter(module)
             printers.append(printer)
 
-        BlockPrinter.to_adjust(self.ordered_modules, printers)
+        BlockPrinter.adjust(self.ordered_modules)
 
-        print(BlockPrinter.to_print_header())
+        print(BlockPrinter.header_text())
 
         for printer in printers:
-            print_formats = printer.to_print_format()
+            print_formats = printer.to_formatted_text()
             for print_format in print_formats:
                 print(print_format)
 
-        print(BlockPrinter.to_print_header(reverse=True))
-        print(BlockPrinter.to_print_footer())
+        print(BlockPrinter.header_text(reverse=True))
+        print(BlockPrinter.footer_text())
+
+        print()
+        print(Module.to_print_format(self.ordered_modules))
 
     # ==================================================================================================
     #

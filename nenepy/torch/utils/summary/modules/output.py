@@ -1,6 +1,6 @@
 import itertools
 
-from . import AbstractModule
+from .abstract_module import AbstractModule
 from .value import Value
 
 
@@ -9,25 +9,29 @@ class Output(AbstractModule):
     _max_each_dim_size = 0
 
     def __init__(self, values):
+        super(Output, self).__init__()
         self.values = self._analyze_values(values)
-        self.adjusted_texts = None
 
     # ==================================================================================================
     #
-    #   Public Method
+    #   Instance Method (Public)
     #
     # ==================================================================================================
-    @property
-    def print_formats(self):
+    def to_formatted_text(self):
         return self._iterable_to_text_formats(self.values, self._max_key_length)
 
+    # ==================================================================================================
+    #
+    #   Class Method (Public)
+    #
+    # ==================================================================================================
     @classmethod
-    def adjust(cls, modules):
-        outputs = [module.output for module in modules]
+    def adjust(cls, outputs):
         tensors = cls.get_all_tensors(outputs)
         max_n_dims = Value.calc_max_n_dims(tensors)
         cls._max_each_dim_size = Value.calc_max_each_dim_size(tensors, max_n_dims)
         cls._max_key_length = cls.get_max_dict_key_length(outputs)
+        cls.n_max_length = cls._get_max_text_length([output.to_formatted_text() for output in outputs])
 
     @classmethod
     def get_all_tensors(cls, outputs):
@@ -35,7 +39,7 @@ class Output(AbstractModule):
 
     # ==================================================================================================
     #
-    #   Class Method
+    #   Class Method (Private)
     #
     # ==================================================================================================
     @classmethod
@@ -54,17 +58,12 @@ class Output(AbstractModule):
 
         return recursive(values)
 
-    # ==================================================================================================
-    #
-    #   Class Method
-    #
-    # ==================================================================================================
     @classmethod
     def _iterable_to_text_formats(cls, value, key_length=None):
         if len(value) == 0:
             return []
         if isinstance(value, dict):
-            return cls.dict_to_text(value, key_length)
+            return cls._dict_to_text(value, key_length)
         else:
             return cls._list_to_text(value)
 
@@ -94,7 +93,7 @@ class Output(AbstractModule):
         return texts
 
     @classmethod
-    def dict_to_text(cls, value_dict, key_length=None):
+    def _dict_to_text(cls, value_dict, key_length=None):
 
         if key_length is None:
             key_length = cls._get_max_dict_key_length(value_dict)

@@ -1,13 +1,16 @@
+from collections import Counter
+
 from torch import nn
 
+from .abstract_module import AbstractModule, Align
 from .input import Input
+from .network_architecture import NetworkArchitecture
 from .output import Output
 from .parameter import Parameter
-from . import NetworkArchitecture
 from .time import Time
 
 
-class Module:
+class Module(AbstractModule):
 
     def __init__(self, ):
         """
@@ -15,6 +18,7 @@ class Module:
         Args:
             module (nn.Module):
         """
+        super(Module, self).__init__()
         self.module = None
         self.input = None
         self.output = None
@@ -33,8 +37,6 @@ class Module:
         self.input = Input(module, module_in)
         self.output = Output(module_out)
         self.parameter = Parameter(module)
-
-    def adjust(self):
         self.network_architecture = NetworkArchitecture(self)
         self.time = Time(self.processing_time)
 
@@ -44,3 +46,26 @@ class Module:
     @property
     def module_name(self):
         return self.module.__class__.__name__
+
+    @classmethod
+    def to_print_format(cls, modules):
+        types = [(cls._to_type(module.module), cls.to_module_class_path(module.module)) for module in modules]
+        counter = Counter(types)
+        class_length = max([len(t[0]) for t in types], default=0)
+        count_length = len(str(counter.most_common()[0][1]))
+        classes = counter.most_common()
+        texts = [""] * len(classes)
+        for i, (key, count) in enumerate(classes):
+            texts[i] = f"{cls._align(key[0], class_length, Align.Right)}: {cls._align(str(count), count_length, Align.Right)}   ({key[1]})"
+
+        return "\n".join(texts)
+
+    @staticmethod
+    def to_module_class_path(module):
+        text = str(type(module))
+        return text[8:len(text) - 2]
+
+    @staticmethod
+    def module_path_to_name(module_path):
+        text = module_path.split(".")[-1]
+        return text
