@@ -43,7 +43,7 @@ class BlockPrinter(AbstractModule):
     #   Instance Method (Public)
     #
     # ==================================================================================================
-    def to_formatted_text(self):
+    def to_formatted_texts(self):
 
         formatted_architecture = self.module.network_architecture.to_formatted_text()
         formatted_inputs = self.module.input.to_formatted_text()
@@ -125,7 +125,7 @@ class BlockPrinter(AbstractModule):
         cls.parameter_length = cls._calc_max_parameter_length()
 
     @classmethod
-    def header_text(cls, reverse=False):
+    def to_header_text(cls, reverse=False):
 
         architecture_format = cls._align(cls.network_architecture_header, cls.architecture_length, Align.Center)
         input_format = cls._align(cls.input_header, cls.input_length, Align.Center)
@@ -158,7 +158,7 @@ class BlockPrinter(AbstractModule):
         return "\n".join(reversed(lines) if reverse else lines)
 
     @staticmethod
-    def footer_text():
+    def to_footer_text():
         return Memory.to_print_format()
 
     @classmethod

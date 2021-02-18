@@ -1,7 +1,9 @@
 import itertools
+import sys
 
 import numpy as np
 import torch
+from torchvision.models.detection.image_list import ImageList
 
 from .abstract_module import AbstractModule
 

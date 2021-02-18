@@ -15,11 +15,13 @@ class Parameter(AbstractModule):
         """
         super(Parameter, self).__init__()
         self.module = module
+        self.params = module.state_dict(keep_vars=True).values()
+        # self.params = module.parameters()
         self.is_train = module.training
         self.has_weight = self._has_weight(module)
         self.has_bias = self._has_bias(module)
-        self.n_weight_params, self.weight_requires_grad = self._analyze_weight(module)
-        self.n_bias_params, self.bias_requires_grad = self._analyze_bias(module)
+        self.weight, self.n_weight_params, self.weight_requires_grad = self._analyze_weight(module)
+        self.bias, self.n_bias_params, self.bias_requires_grad = self._analyze_bias(module)
 
     # ==================================================================================================
     #
@@ -72,20 +74,22 @@ class Parameter(AbstractModule):
     @classmethod
     def _analyze_weight(cls, module):
         if cls._has_weight(module):
-            n_params = cls._calc_n_params(module.weight)
+            weight_tensor = module.weight
+            n_params = cls._calc_n_params(weight_tensor)
             requires_grad = module.weight.requires_grad
-            return n_params, requires_grad
+            return weight_tensor, n_params, requires_grad
 
-        return 0, False
+        return None, 0, False
 
     @classmethod
     def _analyze_bias(cls, module):
         if cls._has_bias(module):
-            n_params = cls._calc_n_params(module.bias)
+            bias_tensor = module.bias
+            n_params = cls._calc_n_params(bias_tensor)
             requires_grad = module.bias.requires_grad
-            return n_params, requires_grad
+            return bias_tensor, n_params, requires_grad
 
-        return 0, False
+        return None, 0, False
 
     @classmethod
     def _calc_max_weight_length(cls, parameter):

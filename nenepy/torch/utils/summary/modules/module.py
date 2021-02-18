@@ -48,7 +48,7 @@ class Module(AbstractModule):
         return self.module.__class__.__name__
 
     @classmethod
-    def to_print_format(cls, modules):
+    def to_summary_text(cls, modules):
         types = [(cls._to_type(module.module), cls.to_module_class_path(module.module)) for module in modules]
         counter = Counter(types)
         class_length = max([len(t[0]) for t in types], default=0)

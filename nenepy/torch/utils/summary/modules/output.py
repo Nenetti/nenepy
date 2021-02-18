@@ -1,5 +1,7 @@
 import itertools
 
+import torch
+
 from .abstract_module import AbstractModule
 from .value import Value
 
@@ -18,7 +20,7 @@ class Output(AbstractModule):
     #
     # ==================================================================================================
     def to_formatted_text(self):
-        return self._iterable_to_text_formats(self.values, self._max_key_length)
+        return self._iterable_to_text_formats(self.values, self._max_key_length, True)
 
     # ==================================================================================================
     #
@@ -44,14 +46,17 @@ class Output(AbstractModule):
     # ==================================================================================================
     @classmethod
     def _analyze_values(cls, values):
-        def recursive(v):
-            if cls._is_iterable(v):
-                if isinstance(v, dict):
-                    return dict((key, recursive(v)) for key, v in v.items())
+        def recursive(value):
+            if cls._is_iterable(value):
+                if isinstance(value, dict):
+                    return dict((key, recursive(v)) for key, v in value.items())
                 else:
-                    return [recursive(v) for v in v]
+                    return [recursive(v) for v in value]
             else:
-                return Value(v)
+                if not isinstance(value, torch.Tensor) and hasattr(value, "__dict__"):
+                    return {f"{cls._to_type(value)}()": dict((key, recursive(v)) for key, v in value.__dict__.items())}
+                else:
+                    return Value(value)
 
         if not isinstance(values, dict):
             values = {"": values}
@@ -59,11 +64,11 @@ class Output(AbstractModule):
         return recursive(values)
 
     @classmethod
-    def _iterable_to_text_formats(cls, value, key_length=None):
+    def _iterable_to_text_formats(cls, value, key_length=None, is_root=False):
         if len(value) == 0:
             return []
         if isinstance(value, dict):
-            return cls._dict_to_text(value, key_length)
+            return cls._dict_to_text(value, key_length, is_root)
         else:
             return cls._list_to_text(value)
 
@@ -93,7 +98,7 @@ class Output(AbstractModule):
         return texts
 
     @classmethod
-    def _dict_to_text(cls, value_dict, key_length=None):
+    def _dict_to_text(cls, value_dict, key_length=None, is_root=False):
 
         if key_length is None:
             key_length = cls._get_max_dict_key_length(value_dict)
@@ -102,7 +107,7 @@ class Output(AbstractModule):
 
         texts = []
         for key, value in zip(adjusted_keys, value_dict.values()):
-            if len(value_dict) == 1:
+            if is_root and len(value_dict) == 1:
                 key = f"{cls.to_empty(key)}"
 
             if cls._is_iterable(value):
