@@ -39,8 +39,8 @@ class TorchSummary:
     #   Instance Method (Public)
     #
     # ==================================================================================================
-    def forward_size(self, input_size, **kwargs):
-        if isinstance(input_size, tuple):
+    def forward_size(self, *input_size, **kwargs):
+        if not isinstance(input_size[0], (tuple, list, dict, set)):
             input_size = [input_size]
 
         x = [torch.ones(self.batch_size, *in_size).to(self.device) for in_size in input_size]
