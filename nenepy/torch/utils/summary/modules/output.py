@@ -49,18 +49,18 @@ class Output(AbstractModule):
         def recursive(value):
             if cls._is_iterable(value):
                 if isinstance(value, dict):
-                    return dict((key, recursive(v)) for key, v in value.items())
+                    return dict((str(key), recursive(v)) for key, v in value.items())
                 else:
                     return [recursive(v) for v in value]
             else:
-                if not isinstance(value, torch.Tensor) and hasattr(value, "__dict__"):
-                    return {f"{cls._to_type(value)}()": dict((key, recursive(v)) for key, v in value.__dict__.items())}
-                else:
-                    return Value(value)
+                return Value(value)
+                # if not isinstance(value, torch.Tensor) and hasattr(value, "__dict__"):
+                #     return {f"{cls._to_type(value)}()": dict((key, recursive(v)) for key, v in value.__dict__.items())}
+                # else:
+                #     return Value(value)
 
         if not isinstance(values, dict):
             values = {"": values}
-
         return recursive(values)
 
     @classmethod
