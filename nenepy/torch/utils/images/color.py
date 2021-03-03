@@ -1,6 +1,4 @@
 import numpy as np
-import torch
-
 import matplotlib.pyplot as plt
 
 
@@ -8,131 +6,97 @@ class Color:
     """
 
     Attributes:
-        _color_map (torch.Tensor):  RGB Color Palette.
+        _COLOR_MAP (np.ndarray):  RGB Color Palette.
 
     """
-    _color_map = None
+    _COLOR_MAP = None
 
     # ==================================================================================================
     #
-    #   Public Method
+    #   Class Method (Public)
     #
     # ==================================================================================================
-
-    @staticmethod
-    def to_jet(image):
-        """
-        Examples:
-            >>> x = torch.rand(size=(128,128))
-            >>> color = Color.to_jet(x)
-            >>> print(color.shape)
-            [3, 128, 128]
-
-        Args:
-            image (torch.Tensor): [H, W]
-
-        Returns:
-            torch.Tensor
-
-        Shapes:
-            ([H, W] or [1, H, W]) -> [3, H, W]
-
-        """
-        if len(image.shape) != 2:
-            image = image.squeeze()
-        rgb = plt.get_cmap("jet")(image.numpy())[:, :, :3]
-        return torch.from_numpy(rgb).type(torch.float32).permute(dims=(2, 0, 1))
+    @classmethod
+    def init_color_map(cls, n=256):
+        cls._COLOR_MAP = cls._generate_color_map(n)
 
     @classmethod
-    def to_color(cls, indexes):
+    def index_to_rgb(cls, index):
         """
+        Args:
+            index (int):
+
+        Returns:
+            np.ndarray:
+
+        Shapes:
+            [1] -> [3]
+
         Examples:
-            >>> x = [0] * 10
-            >>> color = Color.to_color(x)
+            >>> color = Color.index_to_rgb(1)
             >>> print(color.shape)
             [3, 10]
 
+        """
+        return cls._COLOR_MAP[index]
+
+    @classmethod
+    def indexes_to_rgbs(cls, indexes):
+        """
         Args:
-            indexes (list or np.ndarray or torch.Tensor):
+            indexes (list or np.ndarray):
 
         Returns:
-            torch.Tensor:
+            np.ndarray:
 
         Shapes:
             [N] -> [N, 3]
 
+        Examples:
+            >>> x = [0] * 10
+            >>> colors = Color.indexes_to_rgbs(x)
+            >>> print(colors.shape)
+            [3, 10]
+
         """
-        return torch.stack([cls._color_map[index] for index in indexes], dim=0)
+        return np.stack([cls._COLOR_MAP[index] for index in indexes], axis=0)
+
+    # ==================================================================================================
+    #
+    #   Class Method (Private)
+    #
+    # ==================================================================================================
 
     @classmethod
-    def index_to_color(cls, image):
+    def _generate_color_map(cls, n):
         """
-        Examples:
-            >>> x = torch.randint(low=0, high=20, size=(128,128))
-            >>> color = Color.index_to_color(x)
-            >>> print(color.shape)
-            [3, 128, 128]
-
         Args:
-            image (torch.Tensor):
+            n (int):
 
         Returns:
-            torch.Tensor:
+            np.ndarray:
 
         Shapes:
-            ([H, W] or [1, H, W]) -> [3, H, W]
+            <- [N, 3]
 
         """
-        print("A1-0")
-
-        if len(image.shape) != 2:
-            image = image.squeeze()
-
-        print("A1-1")
-        print(image.shape)
-
-        height, width = image.shape
-        print("A1-2", height, width)
-        print(torch.zeros(size=(height, width, 3), dtype=torch.uint8))
-        print("A1")
-        color_image = torch.zeros(size=(height, width, 3), dtype=torch.uint8)
-        print("A1-2")
-        labels = torch.unique(image)
-        print("A1-2")
-
-        for label in labels:
-            color_image[image == label] = cls._color_map[label]
-
-        color_image = color_image.type(torch.float32).permute(dims=(2, 0, 1))
-
-        return color_image / 255.0
-
-    @classmethod
-    def index_to_rgb(cls, index):
-        return cls._color_map[index]
-
-
-    # ==================================================================================================
-    #
-    #   Private Method
-    #
-    # ==================================================================================================
-
-    @classmethod
-    def init_color_map(cls, n=256):
-        cls._color_map = cls._create_color_map(n)
-
-    @classmethod
-    def _create_color_map(cls, n):
-
         color_map = np.zeros(shape=(n, 3), dtype=np.uint8)
         for i in range(n):
-            color_map[i] = cls._index2rgb(i)
+            color_map[i] = cls._index_to_rgb(i)
 
-        return torch.from_numpy(color_map)
+        return color_map
 
     @staticmethod
-    def _index2rgb(index):
+    def _index_to_rgb(index):
+        """
+        Args:
+            index (int):
+
+        Returns:
+            (int, int, int):
+
+        """
+
         def bit(v, i):
             return (v & (1 << i)) != 0
 
@@ -146,4 +110,5 @@ class Color:
         return r, g, b
 
 
+# Initialize color pallet
 Color.init_color_map(n=256)
