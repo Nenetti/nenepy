@@ -43,14 +43,18 @@ class TorchSummary:
         if not isinstance(input_size[0], (tuple, list, dict, set)):
             input_size = [input_size]
 
-        x = [torch.ones(self.batch_size, *in_size).to(self.device) for in_size in input_size]
-        self._forward(x, **kwargs)
+        x = [torch.randn(self.batch_size, *in_size).to(self.device) for in_size in input_size]
+
+        return self._forward(x, **kwargs)
 
     def forward_tensor(self, input_tensor, **kwargs):
         if not isinstance(input_tensor, (tuple, list, dict, set)):
             input_tensor = [input_tensor]
 
-        self._forward(input_tensor, **kwargs)
+        return self._forward(input_tensor, **kwargs)
+
+    def __call__(self, input_tensor, **kwargs):
+        return self.forward_tensor(input_tensor, **kwargs)
 
     # ==================================================================================================
     #
@@ -59,7 +63,7 @@ class TorchSummary:
     # ==================================================================================================
     def _forward(self, x, **kwargs):
         self.model.apply(self._register_hook)
-        self.model(*x, **kwargs)
+        out = self.model(*x, **kwargs)
 
         self._print_network()
 
@@ -67,6 +71,8 @@ class TorchSummary:
 
         if self.is_exit:
             sys.exit()
+
+        return out
 
     def _print_network(self):
         printers = [BlockPrinter(module) for module in self.ordered_modules]
