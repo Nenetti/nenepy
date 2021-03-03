@@ -122,46 +122,54 @@ class TensorBoardLoader(TensorBoard):
         if len(event_acc.scalars.Keys()) > 0:
             if tag is None:
                 scalar = self._load_scalar(event_acc)
-                self._scalar = self.merge_dict(self._scalar, scalar)
+                self._scalar = self._merge_dict(self._scalar, scalar)
 
             else:
                 scalars = self._load_scalars(event_acc, tag)
-                self._scalars = self.merge_dict(self._scalars, scalars)
+                self._scalars = self._merge_dict(self._scalars, scalars)
         elif len(event_acc.images.Keys()) > 0:
             images = self._load_image(event_acc)
-            self._images = self.merge_dict(self._images, images)
+            self._images = self._merge_dict(self._images, images)
 
-    def _load_scalar(self, event_acc):
+    # ==================================================================================================
+    #
+    #   Class Method (Private)
+    #
+    # ==================================================================================================
+    @classmethod
+    def _load_scalar(cls, event_acc):
         d = {}
         for key in event_acc.scalars.Keys():
-            values = self.step_sort(event_acc.Scalars(key))
-            namespace, graph_name = self._decompose_scalar_tag(key)
+            values = cls._step_sort(event_acc.Scalars(key))
+            namespace, graph_name = cls._decompose_scalar_tag(key)
             d[(namespace, graph_name)] = values
         return d
 
-    def _load_scalars(self, event_acc, dir_name):
+    @classmethod
+    def _load_scalars(cls, event_acc, dir_name):
         d = {}
         for key in event_acc.scalars.Keys():
-            values = self.step_sort(event_acc.Scalars(key))
-            namespace, graph_name, scalar_tag = self._decompose_scalars_dir_name(dir_name)
+            values = cls._step_sort(event_acc.Scalars(key))
+            namespace, graph_name, scalar_tag = cls._decompose_scalars_dir_name(dir_name)
             d[(namespace, graph_name, scalar_tag)] = values
         return d
 
-    def _load_image(self, event_acc):
+    @classmethod
+    def _load_image(cls, event_acc):
         d = {}
         for key in event_acc.images.Keys():
-            values = self.step_sort(event_acc.Images(key))
-            namespace, image_name = self._decompose_image_tag(key)
+            values = cls._step_sort(event_acc.Images(key))
+            namespace, image_name = cls._decompose_image_tag(key)
             d[(namespace, image_name)] = values
             # d[(namespace, image_name)] = [Image(v) for v in values]
         return d
 
     @staticmethod
-    def step_sort(values):
+    def _step_sort(values):
         return sorted(values, key=lambda x: x.step)
 
     @classmethod
-    def merge_dict(cls, a, b):
+    def _merge_dict(cls, a, b):
         """
         Args:
             a (dict):
@@ -181,6 +189,6 @@ class TensorBoardLoader(TensorBoard):
         if len(duplication_keys) > 0:
             Warning(f"Duplicate Keys: {duplication_keys}")
             for key in duplication_keys:
-                d[key] = cls.step_sort(a[key] + b[key])
+                d[key] = cls._step_sort(a[key] + b[key])
 
         return d
