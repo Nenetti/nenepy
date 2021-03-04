@@ -138,13 +138,13 @@ class Memory(AbstractModule):
         non_trainable_bias = 0
 
         if parameter.has_weight:
-            if parameter.weight_requires_grad:
+            if parameter.weight_requires_grad and parameter.is_train:
                 trainable_weight = parameter.n_weight_params
             else:
                 non_trainable_weight = parameter.n_weight_params
 
         if parameter.has_bias:
-            if parameter.bias_requires_grad:
+            if parameter.bias_requires_grad and parameter.is_train:
                 trainable_bias = parameter.n_bias_params
             else:
                 non_trainable_bias = parameter.n_bias_params

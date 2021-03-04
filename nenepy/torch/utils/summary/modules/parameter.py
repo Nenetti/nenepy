@@ -16,7 +16,6 @@ class Parameter(AbstractModule):
         super(Parameter, self).__init__()
         self.module = module
         self.params = module.state_dict(keep_vars=True).values()
-        # self.params = module.parameters()
         self.is_train = module.training
         self.has_weight = self._has_weight(module)
         self.has_bias = self._has_bias(module)
@@ -62,8 +61,6 @@ class Parameter(AbstractModule):
     # ==================================================================================================
     @classmethod
     def adjust(cls, parameters):
-        # cls.max_weight_length = max([cls.max_weight_length, max([cls._calc_max_weight_length(parameter) for parameter in parameters])])
-        # cls.max_bias_length = max([cls.max_bias_length, max([cls._calc_max_bias_length(parameter) for parameter in parameters])])
         cls.n_max_length = cls._get_max_text_length([parameter.to_formatted_text() for parameter in parameters])
 
     # ==================================================================================================
