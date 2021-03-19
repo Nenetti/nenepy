@@ -1,6 +1,10 @@
+import pprint
+from collections import OrderedDict
 from pathlib import Path
 
-import yaml
+from nenepy.utils import yaml
+
+from natsort import natsorted
 
 from nenepy.utils.dictionary import AttrDict
 
@@ -9,17 +13,9 @@ class Config(AttrDict):
 
     # ==================================================================================================
     #
-    #   Public Method
+    #   Instance Method (Public)
     #
     # ==================================================================================================
-
-    def make_immutable(self):
-        """
-        Set Immutable attribute.
-
-        """
-        self.immutable()
-
     def import_yaml(self, yaml_file_path):
         """
 
@@ -42,21 +38,19 @@ class Config(AttrDict):
             file_name (Path or str):
 
         """
-
         # ----- Write and Output ----- #
         with open(Path(file_dir).joinpath(file_name), "w") as f:
             cfg_dict = AttrDict()
             cfg_dict.merge(self)
-
             out_dict = self._to_output_format(cfg_dict)
+
             yaml.dump(out_dict, f, default_flow_style=False)
 
     # ==================================================================================================
     #
-    #   Private Method
+    #   Class Method (Private)
     #
     # ==================================================================================================
-
     @classmethod
     def _recursive_merge(cls, main_cfg, other_cfg, hierarchy=""):
         """
@@ -77,26 +71,39 @@ class Config(AttrDict):
             else:
                 main_cfg[key] = value
 
+    # ==================================================================================================
+    #
+    #   Special Method
+    #
+    # ==================================================================================================
     def __repr__(self):
         def recur(key, value, depth=0):
+            if key.startswith("_"):
+                return None
+
             if isinstance(value, dict):
-                lines = [f"{'':>{depth * 4}}{key}:"]
+                ls = [f"{'':>{depth * 4}}{key}:"]
                 for k, v in value.items():
                     l = recur(k, v, depth + 1)
+                    if l is None:
+                        continue
                     if isinstance(l, list):
-                        lines.extend(l)
+                        ls.extend(l)
                     else:
-                        lines.append(l)
-                return lines
+                        ls.append(l)
+                return ls
             else:
                 return f"{'':>{depth * 4}}{key}: {value}"
 
         lines = []
         for key, value in self.items():
-            l = recur(key, value)
-            if isinstance(l, list):
-                lines.extend(l)
-            else:
-                lines.append(l)
+            line = recur(key, value)
+            if line is None:
+                continue
+
+            if isinstance(line, list):
+                lines.extend(line)
+            elif line is not None:
+                lines.append(line)
 
         return "\n".join(lines)

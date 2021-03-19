@@ -22,7 +22,7 @@ class FocalLoss(nn.Module):
         # return 10 * class_weight * ((targets - torch.sigmoid(inputs).detach()) ** self._gamma) * loss
         # return class_weight * ((targets - torch.sigmoid(inputs).detach()) ** self._gamma) * loss
         # return class_weight * ((targets - torch.sigmoid(inputs).detach()) ** self._gamma) * loss
-        focal_loss = class_weight * ((targets - torch.sigmoid(inputs).detach()) ** self._gamma) * loss
+        focal_loss = class_weight * ((1 - torch.sigmoid(inputs).detach()) ** self._gamma) * loss
         return focal_loss * ((loss.sum() / focal_loss.sum()).detach())
 
     @staticmethod

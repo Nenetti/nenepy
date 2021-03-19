@@ -13,7 +13,7 @@ class RandomExpandRotation:
         self._p = p
         self._degrees = degrees
         self._tile_size = tile_size
-        self._color_palette = Color.to_color(np.arange(100))
+        self._color_palette = Color.indexes_to_rgbs(np.arange(100))
         self._color_tile = [None] * len(self._color_palette)
 
         for i, color in enumerate(self._color_palette):

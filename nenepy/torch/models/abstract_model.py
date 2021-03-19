@@ -11,7 +11,7 @@ from nenepy.torch.interfaces import Mode
 
 class AbstractModel(metaclass=ABCMeta):
 
-    def __init__(self, device, weights_path, optimizer_kwargs={}):
+    def __init__(self):
         """
 
         Args:
@@ -25,8 +25,8 @@ class AbstractModel(metaclass=ABCMeta):
         self.optimizer = None
         self.scheduler = None
 
-        self.weight_path = Path(weights_path)
-        self.device = device
+        # self.weight_path = Path(weights_path)
+        # self.device = device
 
     def _init_multi_gpu(self, n_gpus):
         if n_gpus > 1:
@@ -161,7 +161,7 @@ class AbstractModel(metaclass=ABCMeta):
 
         def recursive(arg):
             if isinstance(arg, torch.Tensor):
-                return arg.to(self.device)
+                return arg.to("cuda")
 
             if isinstance(arg, tuple):
                 arg = (recursive(a) for a in arg)

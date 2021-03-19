@@ -63,7 +63,7 @@ class TensorBoardWriter(MultiTaskProcess):
         Args:
             namespace (str):
             graph_name (str):
-            scalar_dict (dict[str, torch.Tensor]):
+            scalar_dict (dict[str, torch.Tensor or float]):
             step (int):
 
         """

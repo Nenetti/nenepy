@@ -4,18 +4,19 @@ from inspect import signature
 from pathlib import Path
 
 import numpy as np
+import torch
 
 from nenepy.torch.interfaces import Mode
 from nenepy.torch.utils.checkpoint import CheckPoint
 from nenepy.torch.utils.tensorboard import TensorBoardWriter
 from nenepy.torch.utils.tensorboard.multi_process_tensorboard_writer import MultiTaskTensorBoardWriter
-from nenepy.utils import Timer, Logger
+from nenepy.utils import Timer
 from nenepy.utils.dictionary import ListDict
 
 
 class AbstractInterface(metaclass=ABCMeta):
 
-    def __init__(self, mode, model, logger, save_interval, save_multi_process=False):
+    def __init__(self, mode, log_dir, model, save_interval, save_multi_process=False):
         """
 
         Args:
@@ -33,27 +34,26 @@ class AbstractInterface(metaclass=ABCMeta):
         self.model = model
 
         # ----- Log ----- #
-        self.logger = logger
         self.board_writer = MultiTaskTensorBoardWriter(
-            target_cls=TensorBoardWriter, args=(Path(logger.log_dir).joinpath(mode.name),),
+            target_cls=TensorBoardWriter, args=(Path(log_dir).joinpath(mode.name),),
             n_processes=1, auto_start=True
         )
-        self.checkpoint = CheckPoint(root_dir=Path(logger.log_dir).joinpath("checkpoint"), model=self.model, optimizer=self.model.optimizer, n_saves=5)
 
         # ----- etc ----- #
         self.mode = mode
         self.timer = Timer()
-        self.save_interval = save_interval
+        # self.save_interval = save_interval
 
-        self.epoch = 0
-        self.log_time_key = f"{mode.name}_ELAPSED_TIME"
-        self.log_average_time_key = f"{mode.name}_AVERAGE_ELAPSED_TIME"
-        self.log_epoch_key = f"{mode.name}_NUM_EPOCH"
-        self._init_log()
-
-    def _init_log(self):
-        if self.log_time_key not in self.logger:
-            self.logger[self.log_time_key] = 0
+        # self.epoch = 0
+        # self.log_time_key = f"{mode.name}_ELAPSED_TIME"
+        # self.log_average_time_key = f"{mode.name}_AVERAGE_ELAPSED_TIME"
+        # self.log_epoch_key = f"{mode.name}_NUM_EPOCH"
+        # self._init_log()
+    #
+    # def _init_log(self):
+    #     # if self.log_time_key:
+    #     #     self.logger[self.log_time_key] = 0
+    #     pass
 
     # ==================================================================================================
     #
@@ -171,11 +171,11 @@ class AbstractInterface(metaclass=ABCMeta):
     # ==================================================================================================
 
     def __call__(self, *args, **kwargs):
-        self._pre_process()
+        # self._pre_process()
 
         output = self.forward_epoch(*args, **kwargs)
 
-        self._post_process()
+        # self._post_process()
 
         return output
 
@@ -190,3 +190,13 @@ class AbstractInterface(metaclass=ABCMeta):
 
     def kill_process(self):
         self.board_writer.kill()
+
+    def _output_scalar(self, epoch, namespace, metric_name, scalar):
+        self.board_writer.add_scalar(namespace=f"{namespace} {self.mode}", graph_name=metric_name, scalar_value=scalar, step=epoch)
+
+    def _output_scalar_dict(self, epoch, namespace, metric_name, scalar_dict):
+        self.board_writer.add_scalars(namespace=f"{namespace} {self.mode}", graph_name=metric_name, scalar_dict=scalar_dict, step=epoch)
+
+    @staticmethod
+    def _to_binary_mask(mask_images, threshold):
+        return torch.where(mask_images > threshold, 1.0, 0.0)

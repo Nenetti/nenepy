@@ -14,11 +14,6 @@ from nenepy.torch.interfaces import Mode
 
 
 class PascalVoc2012Dataset(AbstractImageDataset):
-    _TRAIN_LIST = "train_augvoc.txt"
-    _VALIDATE_LIST = "val_voc.txt"
-
-    _NUM_CLASSES = 20
-
     _CLASS_DICT = OrderedDict({
         "background": 0,
         "aeroplane": 1,
@@ -47,32 +42,31 @@ class PascalVoc2012Dataset(AbstractImageDataset):
     _CLASS_INDEXES = list(_CLASS_DICT.values())
     _CLASS_NAMES = list(_CLASS_DICT.keys())
 
-    def __init__(self, mode, root_dir, crop_size=(256, 256), scale=(1.0, 1.0), is_transform=False, is_on_memory=True, n_processes=4):
+    def __init__(self, cfg):
         """
 
         Args:
-            mode (Mode):
-            root_dir (str):
-            crop_size ((int, int)):
-            scale ((float, float)):
-            is_transform (bool):
-            is_on_memory (bool):
+            cfg (DatasetConfig):
 
         """
         super(PascalVoc2012Dataset, self).__init__()
 
-        root_dir = Path(root_dir.replace("~", str(Path.home())))
-        self._mode = mode
-        self._is_train = (self._mode == Mode.TRAIN)
-        self._is_transform = is_transform if self._is_train else False
-        self._is_on_memory = is_on_memory
-        self._n_processes = n_processes
+        if "~" in cfg.ROOT_DIR:
+            root_dir = Path(cfg.ROOT_DIR.replace("~", str(Path.home())))
+        else:
+            root_dir = Path(cfg.ROOT_DIR)
 
-        self._rgb_image_paths, self._index_mask_image_paths = self._load_image_path(self._mode, root_dir)
+        self._mode = cfg.MODE
+        self._n_classes = cfg.N_CLASSES
+        self._is_transform = cfg.IS_TRANSFORM
+        self._is_on_memory = cfg.IS_ON_MEMORY
+        self._n_processes = cfg.N_PROCESSES
+
+        self._rgb_image_paths, self._index_mask_image_paths = self._load_image_path(self._mode, root_dir, cfg.DATA_LIST)
         self._n_data = len(self._rgb_image_paths)
 
         self._full_transform = tf.Compose([
-            tf.RandomResizedCrop(size=crop_size, scale=scale),
+            tf.RandomResizedCrop(size=cfg.CROP_SIZE, scale=cfg.SCALE),
             tf.RandomColorJitter(p=1.0, brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
             tf.RandomRotation(p=0.2, degrees=180),
             tf.RandomHorizontalFlip(p=0.5),
@@ -80,7 +74,7 @@ class PascalVoc2012Dataset(AbstractImageDataset):
         ])
 
         self._resize_transform = tf.Compose([
-            tf.RandomResizedCrop(size=crop_size, scale=(1.0, 1.0)),
+            tf.RandomResizedCrop(size=cfg.CROP_SIZE, scale=(1.0, 1.0)),
             tf.ToTensor(),
         ])
 
@@ -96,12 +90,16 @@ class PascalVoc2012Dataset(AbstractImageDataset):
     #
     # ==================================================================================================
     @property
+    def is_train(self):
+        return self._mode == Mode.TRAIN
+
+    @property
     def class_names(self):
         return self._CLASS_NAMES[1:-1]
 
     @property
     def n_classes(self):
-        return self._NUM_CLASSES
+        return self._n_classes
 
     # ==================================================================================================
     #
@@ -139,14 +137,14 @@ class PascalVoc2012Dataset(AbstractImageDataset):
             indexes = indexes[1:]
         indexes -= 1
 
-        labels = torch.zeros(size=(self._NUM_CLASSES,))
+        labels = torch.zeros(size=(self._n_classes,))
         for i in indexes:
             labels[i] = 1
 
-        if self._is_train:
+        if self.is_train:
             return rgb_image, labels, file_name
         else:
-            mask = self._index_to_channel(index_mask_image.squeeze(0), self._NUM_CLASSES)
+            mask = self._index_to_channel(index_mask_image.squeeze(0), self._n_classes)
             return rgb_image, mask, rgb_mask_image, labels, file_name
 
     # ==================================================================================================
@@ -194,8 +192,8 @@ class PascalVoc2012Dataset(AbstractImageDataset):
     #
     # ==================================================================================================
     @classmethod
-    def _load_image_path(cls, mode, root_dir):
-        data_list_file = cls._get_load_file(mode, root_dir)
+    def _load_image_path(cls, mode, root_dir, list_file):
+        data_list_file = cls._get_load_file(mode, root_dir, list_file)
         with open(str(data_list_file), "r") as f:
             lines = f.readlines()
 
@@ -211,12 +209,12 @@ class PascalVoc2012Dataset(AbstractImageDataset):
         return rgb_image_paths, mask_image_paths
 
     @classmethod
-    def _get_load_file(cls, mode, root):
+    def _get_load_file(cls, mode, root_dir, list_file):
         if mode == Mode.TRAIN:
-            return root.joinpath(cls._TRAIN_LIST)
+            return root_dir.joinpath(list_file)
 
         elif mode == Mode.VALIDATE:
-            return root.joinpath(cls._VALIDATE_LIST)
+            return root_dir.joinpath(list_file)
 
         else:
             raise TypeError(f"mode must be '{Mode.TRAIN}' or '{Mode.VALIDATE}', but given '{mode}'")

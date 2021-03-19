@@ -3,34 +3,49 @@ from collections import OrderedDict
 import PIL
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-from PIL.ImageDraw2 import Font
 
 from nenepy.torch.utils.images.color import Color
 
+DEFAULT_FONT_NAME = "UbuntuMono-R.ttf"
+DEFAULT_FONT_SIZE = 25
+DEFAULT_FONT = ImageFont.truetype(DEFAULT_FONT_NAME, 22)
 
-class AbstractImageVisualizer:
-    default_font_name = "UbuntuMono-R.ttf"
-    default_font = ImageFont.truetype(default_font_name, 22)
-    default_font_size = 25
+
+class ImageDrawer:
 
     # ==================================================================================================
     #
-    #   Private Method
+    #   Class Method (Public)
     #
     # ==================================================================================================
-
     @classmethod
-    def resize_font(cls, font_size):
-        return ImageFont.truetype(cls.default_font_name, font_size)
+    def to_font(cls, font_size):
+        """
+        Generate Font
+
+        Args:
+            font_size (int):
+
+        Returns:
+            FreeTypeFont:
+
+        """
+        return ImageFont.truetype(DEFAULT_FONT_NAME, font_size)
+
+    # ==================================================================================================
+    #
+    #   Class Method (Private)
+    #
+    # ==================================================================================================
 
     @classmethod
     def _make_information_texts(cls, labels, score, class_names, threshold):
         """
 
         Args:
-            labels (torch.Tensor):
-            score (torch.Tensor):
-            class_names (torch.Tensor):
+            labels (np.ndarray):
+            score (np.ndarray):
+            class_names (np.ndarray):
 
         Returns:
             (str, str):
@@ -55,9 +70,9 @@ class AbstractImageVisualizer:
         """
 
         Args:
-            labels (torch.Tensor):
-            score (torch.Tensor):
-            class_names (torch.Tensor):
+            labels (np.ndarray):
+            score (np.ndarray):
+            class_names (np.ndarray):
 
         Returns:
             (str, str):
@@ -85,7 +100,7 @@ class AbstractImageVisualizer:
             indent_space (int):
 
         Returns:
-            torch.Tensor:
+            np.ndarray:
 
         Shapes:
             Args -> [3, H, W]
@@ -93,9 +108,9 @@ class AbstractImageVisualizer:
         """
         # ----- Font ----- #
         if font is None:
-            font = cls.default_font
+            font = DEFAULT_FONT
         if font_size == -1:
-            font_size = cls.default_font_size
+            font_size = DEFAULT_FONT_SIZE
 
         # ----- Text Size ----- #
         text_width = max([cls._calc_text_size(text, font)[0] for text in texts])
@@ -116,14 +131,14 @@ class AbstractImageVisualizer:
         """
 
         Args:
-            image_dict (OrderedDict[str, torch.Tensor]):
+            image_dict (OrderedDict[str, np.ndarray]):
             colors (tuple or list or np.ndarray)
             max_n_column (int):
             default_font (PIL.ImageFont.FreeTypeFont):
             font_size (int):
 
         Returns:
-            torch.Tensor:
+            np.ndarray:
 
         Shapes:
             N * [3, H, W] -> [3, H, W]
@@ -141,9 +156,9 @@ class AbstractImageVisualizer:
 
         # ----- Font ----- #
         if default_font is None:
-            default_font = cls.default_font
+            default_font = default_font
         if font_size == -1:
-            font_size = cls.default_font_size
+            font_size = DEFAULT_FONT_SIZE
 
         # ----- Calculate grid row and column ----- #
         n_images = len(image_dict)
@@ -225,7 +240,7 @@ class AbstractImageVisualizer:
         """
         # ----- Font ----- #
         if font is None:
-            font = cls.default_font
+            font = DEFAULT_FONT
 
         sx, sy = sxy
         ex, ey = exy
@@ -270,11 +285,11 @@ class AbstractImageVisualizer:
         """
 
         Args:
-            images (list[torch.Tensor]):
+            images (list[np.ndarray]):
             dim (int):
 
         Returns:
-            torch.Tensor:
+            np.ndarray:
 
         Shapes:
             example: ([N, C, H, W], dim=1) -> [C, H * N, W]
@@ -346,7 +361,7 @@ class AbstractImageVisualizer:
         """
 
         Args:
-            tensors (list[torch.Tensor]):
+            tensors (list[np.ndarray]):
             dim (int):
 
         Returns:
@@ -377,91 +392,3 @@ class AbstractImageVisualizer:
 
         """
         return ImageDraw.Draw(Image.fromarray(np.zeros(shape=(1, 1)))).textsize(text, font)
-
-    @staticmethod
-    def _gray_scale_to_rgb(image):
-        n_channels = image.shape[0]
-        if n_channels == 1:
-            return np.concatenate([image, image, image], axis=0)
-        elif n_channels == 3:
-            return image
-        else:
-            raise ValueError(f"Unexpected GrayScale Image Shape. {image.shape}")
-
-    @staticmethod
-    def _mask_to_heatmap(mask):
-        """
-        Create Class Activation Map.
-
-        Args:
-            mask (torch.Tensor):
-
-        Returns:
-            torch.Tensor:
-
-        Shapes:
-            [C, H, W] -> [3, H, W]
-
-        """
-        return Color.to_jet(mask)
-
-    @staticmethod
-    def _mask_to_rgb(mask):
-        """
-        Colorize prediction mask.
-
-        Args:
-            mask (torch.Tensor):
-
-        Returns:
-            torch.Tensor:
-
-        Shapes:
-            [C, H, W] -> [3, H, W]
-
-        """
-        alpha = np.max(mask, axis=0)
-        indexes = np.argmax(mask, axis=0)
-
-        rgb_mask = Color.index_image_to_rgb_image(indexes) * alpha
-
-        return rgb_mask
-
-    @staticmethod
-    def _gt_mask_to_rgb(index_mask):
-        """
-        Colorize Ground-Truth mask.
-
-        Args:
-            index_mask (torch.Tensor):
-
-        Returns:
-            torch.Tensor:
-
-        Shapes:
-            ([H, W] or [1, H, W]) -> [3, H, W]
-
-        """
-        if len(index_mask.shape) != 2:
-            index_mask = index_mask.squeeze()
-
-        return Color.index_image_to_rgb_image(index_mask)
-
-    @staticmethod
-    def _blend(image1, image2, alpha=0.5):
-        """
-        Blend image1 with image2.
-
-        Args:
-            image1 (torch.Tensor):
-            image2 (torch.Tensor):
-            alpha (float):
-
-        Returns:
-            torch.Tensor
-
-        Shapes:
-            ([3, H, W], [3, H, W]) -> [3, H, W]
-
-        """
-        return (1.0 - alpha) * image1 + alpha * image2

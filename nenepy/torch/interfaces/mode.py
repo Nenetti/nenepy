@@ -1,7 +1,7 @@
-from enum import Enum, auto
+from enum import Enum
 
 
 class Mode(Enum):
-    TRAIN = auto()
-    VALIDATE = auto()
-    TEST = auto()
+    TRAIN = "Train"
+    VALIDATE = "Validate"
+    TEST = "Test"

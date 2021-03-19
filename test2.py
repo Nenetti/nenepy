@@ -1,91 +1,76 @@
-import itertools
-import pprint
 import sys
+import time
 from pathlib import Path
-
 import numpy as np
+import torch
+from PIL import Image
+from torchvision.models.detection.backbone_utils import resnet_fpn_backbone
+from torchvision.models.detection.faster_rcnn import fasterrcnn_resnet50_fpn
+
 import matplotlib.pyplot as plt
+from PIL import ImageDraw, ImageFont
 
-from nenepy.numpy.modules import MutualInformation
-from nenepy.numpy.modules.lda import LDA
+# from nenepy.torch.utils import TorchSummary
+from nenepy.torch.utils.summary.modules.network_architecture import NetworkArchitecture
+from nenepy.torch.utils.summary.torchsummary import TorchSummary
+from nenepy.torch.utils.summary.torchsummary_old import Summary
 
-np.set_printoptions(precision=5)
-np.set_printoptions(suppress=True)
-np.set_printoptions(linewidth=200)
-np.set_printoptions(threshold=10000)
+# x = torch.ones(size=(int(2.5 * 10 ** 8),)).cuda()
+# print(x.element_size() * x.nelement() / 10 ** 6)
+# del x
+# for i in range(10):
+#     time.sleep(1)
+#
+# sys.exit()
+#
 
-if __name__ == '__main__':
-    n = 20
-    class_list = np.loadtxt(f"/home/ubuntu/datasets/SIGVerse/trial3_noise/noisy_class_list/class_list_{n}.txt", delimiter=',', dtype=str)[1:]
-    labels = np.genfromtxt(f"/home/ubuntu/datasets/SIGVerse/trial3_noise/noisy_label/label_{n}_20_2.csv", delimiter=',').astype(np.int)
-    labels = labels[:, 1:]
-    lda = LDA(labels, alpha=1.0, beta=0.01, is_train_hyperparameter=True, n_topic=20)
-    lda.gibbs_sampling(1000)
-    n_v = lda.N_kv.transpose((1, 0)).sum(axis=1)
-    for i, c in enumerate(class_list):
-        print(lda.N_kv.transpose((1, 0))[i], lda.N_kv.transpose((1, 0))[i].sum(), c)
-    # Phi = φ_kv = トピックkに単語vが割り当てられる確率
-    phi = lda.calc_phi()
-    C, V = phi.shape
+batch_size = 1
 
-    # phi = phi / phi.sum(0)
-    # phi = phi / n_v
-    phi = phi.transpose((1, 0))
-    print(phi)
+model = resnet_fpn_backbone('resnet50', pretrained=True, trainable_layers=2)
 
-    p_x = phi
-    p_y = LDA.dirichlet(lda.alpha)
-    p_xy = p_x * p_y
-    p_x = p_xy.sum(axis=1)
-    print(p_x.shape, p_y.shape, p_xy.shape)
-    mi = MutualInformation.calc(p_x, p_y, p_xy).sum(axis=1)
-    mi /= mi.max()
-    for i in range(20):
-        print(mi[i], class_list[i])
-    for i in range(20, V):
-        print(mi[i], class_list[i])
+summary = TorchSummary(model, batch_size=batch_size, is_validate=False, is_exit=False)
+summary.forward_size(3, 256, 256)
 
-    sys.exit()
+sys.exit()
+#
+# out = model(img)
+#
+# for dic in out:
+#     for key, value in dic.items():
+#         print(key, value)
 
-    # print(phi.shape)
-    # phi = lda.calc_phi().sum(axis=0)
-    # print(phi)
-    # print()
-    # t = (lda.calc_phi().transpose((1, 0)) * LDA.dirichlet(lda.alpha)).transpose(1, 0) / lda.calc_phi().sum(axis=0)
-    # print(t)
-
-    # pprint.pprint(list(zip(lda.alpha, LDA.dirichlet(lda.alpha))))
-    # print()
-    # print(lda.N_kv.transpose((1, 0)))
-
-    # diri = LDA.dirichlet(lda.alpha)
-    # print(phi.shape)
-    # print(phi.transpose(1, 0))
-    # print(np.sum(diri * phi, axis=1))
-    # print(phi.sum(axis=0), phi.sum(axis=0).shape)
-    # print(np.argmax(lda.calc_phi(), axis=0))
-    # print(np.sort(p_y)[::-1])
-    print(p_y)
-    print()
-
-    p_xy = phi * p_y
-    # print(p_xy)
-
-    # print(p_xy)
-    p_x = np.sum(p_xy, axis=1)
-    # p_x = np.ones_like(p_x)
-    print(p_x)
-    print()
-    # print(p_x.shape, p_y.shape, p_xy.shape)
-    # print(p_y)
-
-    mi = MutualInformation.calc(p_x, p_y, p_xy)
-    print(mi)
-    for i, c in enumerate(class_list):
-        t = mi.sum(axis=1)[i]
-        print(t, c, t < 0.02)
-    # pprint.pprint(.tolist())
-    # for i, c in enumerate(class_list):
-    #     print(mi.mean(axis=1)[i], c)
-
-    sys.exit()
+# # 結果の表示
+#
+#
+# image = img[0].permute(1, 2, 0).cpu().numpy()
+# image = Image.fromarray((image * 255).astype(np.uint8))
+#
+# boxes = out[0]["boxes"].data.cpu().numpy()
+# scores = out[0]["scores"].data.cpu().numpy()
+# labels = out[0]["labels"].data.cpu().numpy()
+#
+# boxes = boxes[scores >= 0.5].astype(np.int32)
+# scores = scores[scores >= 0.5]
+#
+# for i, box in enumerate(boxes):
+#     draw = ImageDraw.Draw(image)
+#     label = "Unknown"
+#     draw.rectangle([(box[0], box[1]), (box[2], box[3])], outline="red", width=3)
+#
+#     # ラベルの表示
+#
+#     from PIL import Image, ImageDraw, ImageFont
+#
+#     # fnt = ImageFont.truetype('/content/mplus-1c-black.ttf', 20)
+#     fnt = ImageFont.truetype("UbuntuMono-R.ttf", 10)  # 40
+#     text_w, text_h = fnt.getsize(label)
+#     draw.rectangle([box[0], box[1], box[0] + text_w, box[1] + text_h], fill="red")
+#     draw.text((box[0], box[1]), label, font=fnt, fill='white')
+#
+# # 画像を保存したい時用
+# # image.save(f"resample_test{str(i)}.png")
+#
+# fig, ax = plt.subplots(1, 1)
+# ax.imshow(np.array(image))
+#
+# plt.show()
