@@ -1,2 +1,5 @@
 from .tensorboard_writer import TensorBoardWriter
 from .tensorboard_loader import TensorBoardLoader
+
+from .multi_process_tensorboard_writer import MultiProcessTensorBoardWriter, Type
+from .multi_process_tensorboard_write_manager import MultiProcessTensorBoardWriteManager

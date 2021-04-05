@@ -3,8 +3,8 @@ from collections import OrderedDict
 import PIL
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-from PIL.ImageDraw2 import Font
 
+from nenepy.torch.utils.images import Mask
 from nenepy.torch.utils.images.color import Color
 
 
@@ -28,9 +28,9 @@ class AbstractImageVisualizer:
         """
 
         Args:
-            labels (torch.Tensor):
-            score (torch.Tensor):
-            class_names (torch.Tensor):
+            labels (np.ndarray):
+            score (np.ndarray):
+            class_names (np.ndarray):
 
         Returns:
             (str, str):
@@ -41,10 +41,10 @@ class AbstractImageVisualizer:
         gt_labels = np.array(class_names)[labels == 1]
         gt_indexes = np.where(labels == 1)[0]
         gt_predict_labels = [f"{class_names[k]}: {score[k]:.2f}" for k in gt_indexes]
-        gt_predict_label_text = f"Positive Classification          : {', '.join(gt_predict_labels)}"
-        error_indexes = np.where((score > threshold).astype(np.int) - (labels == 1).astype(np.int) == 1)[0]
+        gt_predict_label_text = f"Positive Classification: {', '.join(gt_predict_labels)}"
+        error_indexes = np.where((score > threshold).astype(np.int32) - (labels == 1).astype(np.int32) == 1)[0]
         error_labels = [f"{class_names[k]}: {score[k]:.2f}" for k in error_indexes]
-        error_label_text = f"Negative Classification (p > 0.1): {', '.join(error_labels)}"
+        error_label_text = f"Negative Classification: {', '.join(error_labels)}"
 
         gt_label_text = f"GT  : {', '.join(gt_labels)}"
 
@@ -55,9 +55,9 @@ class AbstractImageVisualizer:
         """
 
         Args:
-            labels (torch.Tensor):
-            score (torch.Tensor):
-            class_names (torch.Tensor):
+            labels (np.ndarray):
+            score (np.ndarray):
+            class_names (np.ndarray):
 
         Returns:
             (str, str):
@@ -85,7 +85,7 @@ class AbstractImageVisualizer:
             indent_space (int):
 
         Returns:
-            torch.Tensor:
+            np.ndarray:
 
         Shapes:
             Args -> [3, H, W]
@@ -116,14 +116,14 @@ class AbstractImageVisualizer:
         """
 
         Args:
-            image_dict (OrderedDict[str, torch.Tensor]):
+            image_dict (OrderedDict[str, np.ndarray]):
             colors (tuple or list or np.ndarray)
             max_n_column (int):
             default_font (PIL.ImageFont.FreeTypeFont):
             font_size (int):
 
         Returns:
-            torch.Tensor:
+            np.ndarray:
 
         Shapes:
             N * [3, H, W] -> [3, H, W]
@@ -161,6 +161,8 @@ class AbstractImageVisualizer:
         #
         out_image = [None] * n_rows
 
+        class_color_space = font_size
+
         for i in range(n_rows):
 
             # ----- Extract Row Image ----- #
@@ -174,53 +176,158 @@ class AbstractImageVisualizer:
             raw_image_area = np.concatenate(row_images, axis=2)
 
             # ----- Create and Draw Information ----- #
+            n_rows = 1
+            for text in row_keys:
+                if "\n" in text:
+                    splits = text.split("\n")
+                    n_rows = max([n_rows, len(splits)])
+
             _, _, total_width = raw_image_area.shape
-            image_name_area = np.zeros((font_size, total_width, 3), dtype=np.uint8)
-            image_name_area = Image.fromarray(image_name_area)
-            image_name_draw = ImageDraw.Draw(image_name_area)
-
+            # image_name_area = np.zeros((font_size * n_rows, total_width, 3), dtype=np.uint8)
+            # image_name_area = Image.fromarray(image_name_area)
+            # image_name_draw = ImageDraw.Draw(image_name_area)
+            #
+            row_frames = [None] * len(row_keys)
+            height = (font_size * n_rows)
             for k, text in enumerate(row_keys):
-                # text_width = cls._calc_text_size(str(text), default_font)[0]
-                # if text_width > width:
-                #     max_text_length = max([len(str(key)) for key in keys])
-                #     size = ((width * 2) // max_text_length) - 1
-                #     font = cls.resize_font(size)
-                # else:
-                #     font = default_font
-                font = default_font
+                if row_colors[k] is not None:
+                    row_frames[k] = cls._generate_cam_text_frame(text, width, height, tuple(row_colors[k]), frame_color=(255, 255, 255))
+                else:
+                    row_frames[k] = cls._generate_text_frame(text, width, height, frame_color=(255, 255, 255))
+            image_name_area = np.concatenate(row_frames, axis=2)
 
-                cls._draw_frame(
-                    image_name_draw, text,
-                    sxy=(width * k, 0), exy=(width * (k + 1) - 1, font_size - 1),
-                    rect_color=row_colors[k], font=font,
-                )
-
-            # ----- Summarized Image and Information ----- #
-            image_name_area = np.array(image_name_area, dtype=np.float32) / 255.0
-            image_name_area = image_name_area.transpose((2, 0, 1))
+            #     split_texts = text.split("\n")
+            #     cls._draw_frame(
+            #         image_name_draw,
+            #         sxy=(width * k, 0), exy=(width * (k + 1) - 1, (font_size * len(split_texts)) - 2),
+            #         frame_color=(255, 255, 255)
+            #     )
+            #     if row_colors[k] is not None:
+            #         cls._draw_frame(
+            #             image_name_draw,
+            #             sxy=(1, 1), exy=(class_color_space - 1, (font_size * len(split_texts)) - 2),
+            #             background_color=tuple(row_colors[k])
+            #         )
+            #     for m, split_text in enumerate(split_texts):
+            #         cls._draw_text(
+            #             image_name_draw,
+            #             split_text,
+            #             sxy=(width * k + class_color_space, font_size * m),
+            #         )
+            #
+            # # ----- Summarized Image and Information ----- #
+            # image_name_area = np.array(image_name_area, dtype=np.float32) / 255.0
+            # image_name_area = image_name_area.transpose((2, 0, 1))
             out_image[i] = np.concatenate([image_name_area, raw_image_area], axis=1)
 
         return cls._auto_fitting_concat_images(out_image, dim=1)
 
     @classmethod
-    def _draw_frame(cls, pil_draw, text, sxy, exy,
-                    font=None, font_color=(255, 255, 255),
-                    rect_color=None, indent_space=10, color_margin=5,
-                    background_color=(0, 0, 0), frame_color=(255, 255, 255)):
+    def _generate_cam_text_frame(cls, text, width, height, class_color, background_color=None, frame_color=None):
         """
 
         Args:
-            pil_draw (PIL.ImageDraw.ImageDraw):
             text (str):
             sxy ((int, int)):
             exy ((int, int)):
+            frame_color (None or (int, int, int)):
+            font_color ((int, int, int)):
+            class_color ((int, int, int)):
+
+        """
+        font_size = cls.default_font_size
+        pil_image = Image.fromarray(np.zeros((height, width, 3), dtype=np.uint8))
+        image_draw = ImageDraw.Draw(pil_image)
+
+        class_color_space = cls.default_font_size
+        cls._draw_frame(
+            image_draw,
+            sxy=(0, 0), exy=(width - 1, height - 1),
+            outline_color=frame_color
+        )
+
+        cls._draw_frame(
+            image_draw,
+            sxy=(0, 0), exy=(class_color_space - 1, height - 1),
+            background_color=class_color, outline_color=frame_color,
+        )
+
+        for m, split_text in enumerate(text.split("\n")):
+            cls._draw_text(
+                image_draw,
+                split_text,
+                sxy=(class_color_space, font_size * m),
+            )
+
+        image = np.array(pil_image, dtype=np.float32) / 255.0
+        return image.transpose((2, 0, 1))
+
+    @classmethod
+    def _generate_text_frame(cls, text, width, height, background_color=None, frame_color=None):
+        """
+
+        Args:
+            text (str):
+            width (int):
+            height (int):
+            background_color (None or (int, int, int)):
+            frame_color (None or (int, int, int)):
+
+        """
+        font_size = cls.default_font_size
+        pil_image = Image.fromarray(np.zeros((height, width, 3), dtype=np.uint8))
+        image_draw = ImageDraw.Draw(pil_image)
+
+        cls._draw_frame(
+            image_draw,
+            sxy=(0, 0), exy=(width - 1, height - 1),
+            background_color=background_color,
+            outline_color=frame_color,
+        )
+
+        for m, split_text in enumerate(text.split("\n")):
+            cls._draw_text(
+                image_draw,
+                split_text,
+                sxy=(0, font_size * m),
+            )
+
+        image = np.array(pil_image, dtype=np.float32) / 255.0
+        return image.transpose((2, 0, 1))
+
+    @classmethod
+    def _draw_frame(cls, image_draw, sxy, exy, outline_width=1, background_color=None, outline_color=None):
+        """
+
+        Args:
+            image_draw (PIL.ImageDraw.ImageDraw):
+            sxy ((int, int)):
+            exy ((int, int)):
+            outline_color (None or (int, int, int)):
+
+        """
+        image_draw.rectangle(
+            xy=(sxy, exy),
+            fill=background_color,
+            outline=outline_color,
+            width=outline_width
+        )
+
+    @classmethod
+    def _draw_text(cls, image_draw, text, sxy,
+                   font=None, font_color=(255, 255, 255),
+                   rect_color=None, indent_space=10, color_margin=5, ):
+        """
+
+        Args:
+            image_draw (PIL.ImageDraw.ImageDraw):
+            text (str):
+            sxy ((int, int)):
             font (PIL.ImageFont.FreeTypeFont):
             font_color ((int, int, int)):
             rect_color ((int, int, int)):
             indent_space (int):
             color_margin (int):
-            background_color ((int, int, int)):
-            frame_color ((int, int, int)):
 
         """
         # ----- Font ----- #
@@ -228,53 +335,24 @@ class AbstractImageVisualizer:
             font = cls.default_font
 
         sx, sy = sxy
-        ex, ey = exy
-        # ----- Draw Information Frame ----- #
-        pil_draw.rectangle(
-            xy=((sx, sy), (ex, ey)),
-            fill=background_color,
-            outline=frame_color,
-            width=1
+        # ----- Draw Information Text ----- #
+        image_draw.text(
+            xy=(sx + indent_space, sy),
+            text=text,
+            fill=font_color,
+            font=font
         )
-
-        if rect_color is None:
-            # ----- Draw Information Text ----- #
-            pil_draw.text(
-                xy=(sx + indent_space, sy),
-                text=text,
-                fill=font_color,
-                font=font
-            )
-
-        else:
-            color_size = (ey - sy) - (color_margin * 2)
-            # ----- Draw Information Text ----- #
-            pil_draw.text(
-                xy=(sx + indent_space + color_margin + color_size + color_margin + 5, sy),
-                text=text,
-                fill=font_color,
-                font=font
-            )
-
-            # ----- Draw Information Color ----- #
-            pil_draw.rectangle(
-                xy=(
-                    (sx + indent_space + color_margin, sy + color_margin),
-                    (sx + indent_space + color_margin + color_size, ey - color_margin)
-                ),
-                fill=tuple(rect_color),
-            )
 
     @classmethod
     def _auto_fitting_concat_images(cls, images, dim):
         """
 
         Args:
-            images (list[torch.Tensor]):
+            images (list[np.ndarray]):
             dim (int):
 
         Returns:
-            torch.Tensor:
+            np.ndarray:
 
         Shapes:
             example: ([N, C, H, W], dim=1) -> [C, H * N, W]
@@ -346,7 +424,7 @@ class AbstractImageVisualizer:
         """
 
         Args:
-            tensors (list[torch.Tensor]):
+            tensors (list[np.ndarray]):
             dim (int):
 
         Returns:
@@ -394,16 +472,16 @@ class AbstractImageVisualizer:
         Create Class Activation Map.
 
         Args:
-            mask (torch.Tensor):
+            mask (np.ndarray):
 
         Returns:
-            torch.Tensor:
+            np.ndarray:
 
         Shapes:
             [C, H, W] -> [3, H, W]
 
         """
-        return Color.to_jet(mask)
+        return Mask.to_jet(mask)
 
     @staticmethod
     def _mask_to_rgb(mask):
@@ -411,10 +489,10 @@ class AbstractImageVisualizer:
         Colorize prediction mask.
 
         Args:
-            mask (torch.Tensor):
+            mask (np.ndarray):
 
         Returns:
-            torch.Tensor:
+            np.ndarray:
 
         Shapes:
             [C, H, W] -> [3, H, W]
@@ -423,7 +501,7 @@ class AbstractImageVisualizer:
         alpha = np.max(mask, axis=0)
         indexes = np.argmax(mask, axis=0)
 
-        rgb_mask = Color.index_image_to_rgb_image(indexes) * alpha
+        rgb_mask = Mask.index_image_to_rgb_image(indexes) * alpha
 
         return rgb_mask
 
@@ -433,19 +511,16 @@ class AbstractImageVisualizer:
         Colorize Ground-Truth mask.
 
         Args:
-            index_mask (torch.Tensor):
+            index_mask (np.ndarray):
 
         Returns:
-            torch.Tensor:
+            np.ndarray:
 
         Shapes:
             ([H, W] or [1, H, W]) -> [3, H, W]
 
         """
-        if len(index_mask.shape) != 2:
-            index_mask = index_mask.squeeze()
-
-        return Color.index_image_to_rgb_image(index_mask)
+        return Mask.index_image_to_rgb_image(index_mask)
 
     @staticmethod
     def _blend(image1, image2, alpha=0.5):
@@ -453,12 +528,12 @@ class AbstractImageVisualizer:
         Blend image1 with image2.
 
         Args:
-            image1 (torch.Tensor):
-            image2 (torch.Tensor):
+            image1 (np.ndarray):
+            image2 (np.ndarray):
             alpha (float):
 
         Returns:
-            torch.Tensor
+            np.ndarray
 
         Shapes:
             ([3, H, W], [3, H, W]) -> [3, H, W]

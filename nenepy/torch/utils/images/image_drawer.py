@@ -57,7 +57,7 @@ class ImageDrawer:
         gt_indexes = np.where(labels == 1)[0]
         gt_predict_labels = [f"{class_names[k]}: {score[k]:.2f}" for k in gt_indexes]
         gt_predict_label_text = f"Positive Classification          : {', '.join(gt_predict_labels)}"
-        error_indexes = np.where((score > threshold).astype(np.int) - (labels == 1).astype(np.int) == 1)[0]
+        error_indexes = np.where((score > threshold).astype(np.int32) - (labels == 1).astype(np.int32) == 1)[0]
         error_labels = [f"{class_names[k]}: {score[k]:.2f}" for k in error_indexes]
         error_label_text = f"Negative Classification (p > 0.1): {', '.join(error_labels)}"
 

@@ -10,16 +10,20 @@ from nenepy.utils.dictionary import AttrDict
 class CheckPointer:
     _SUFFIX = ".pkl"
 
-    def __init__(self, save_dir, model, optimizer, n_saves=5):
+    def __init__(self, save_dir, model, optimizer, needs_load_checkpoints, n_saves=5):
         self._save_dir = Path(save_dir)
         self._model = model
         self._optimizer = optimizer
         self._checkpoints = []
         self._n_saves = n_saves
+        self._needs_load_checkpoints = needs_load_checkpoints
 
-        if self._save_dir.exists():
+        if self._needs_load_checkpoints:
             self._checkpoints = self._load_checkpoints(self._save_dir, self._n_saves)
         else:
+            if self._save_dir.exists():
+                shutil.rmtree(self._save_dir)
+
             self._save_dir.mkdir()
 
     # ==================================================================================================
@@ -100,6 +104,9 @@ class CheckPointer:
         Returns:
 
         """
+        if not save_dir.exists():
+            raise FileNotFoundError(save_dir)
+
         checkpoints = []
         for file in save_dir.iterdir():
             if file.is_file() and file.suffix == cls._SUFFIX:

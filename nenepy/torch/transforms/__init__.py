@@ -4,7 +4,6 @@ from .random_channel_swap import RandomChannelColorFlip
 from .random_choice import RandomChoice
 from .random_color_flip import RandomColorFlip
 from .random_color_jitter import RandomColorJitter
-from .random_erasing import RandomErasing
 from .random_expand_rotation import RandomExpandRotation
 from .random_grayscale import RandomGrayscale
 from .random_horizontal_flip import RandomHorizontalFlip

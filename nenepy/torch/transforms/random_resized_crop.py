@@ -5,15 +5,15 @@ import PIL
 import torch
 from PIL import Image
 from torchvision import transforms
-from torchvision.transforms import functional as F
+from torchvision.transforms import functional as F, InterpolationMode
 
 
 class RandomResizedCrop(transforms.RandomResizedCrop):
 
     @staticmethod
-    def to_resized_crop(img, top, left, height, width, size, interpolation=Image.BILINEAR):
+    def to_resized_crop(img, top, left, height, width, size, interpolation=InterpolationMode.BILINEAR):
         if isinstance(img, PIL.Image.Image) and img.mode == "P" or img.mode == "I":
-            return F.resized_crop(img, top, left, height, width, size, Image.NEAREST)
+            return F.resized_crop(img, top, left, height, width, size, InterpolationMode.NEAREST)
         else:
             return F.resized_crop(img, top, left, height, width, size, interpolation)
 
@@ -40,7 +40,7 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
         i, j = random.randint(0, h_range), random.randint(0, w_range)
         return i, j, h, w
 
-    def __call__(self, *images):
+    def forward(self, *images):
         """
         Args:
             img (PIL Image): Image to be cropped and resized.

@@ -70,6 +70,27 @@ class Mask:
         return color_image / 255.0
 
     @classmethod
+    def to_binary_mask(cls, mask, threshold=0.0):
+        """
+        Colorize prediction mask.
+
+        Args:
+            mask (np.ndarray):
+            threshold (float):
+
+        Returns:
+            np.ndarray:
+
+        Shapes:
+            -> [C, H, W]
+            <- [3, H, W]
+
+        """
+        binary_mask = np.zeros_like(mask)
+        binary_mask[mask > threshold] = 1
+        return binary_mask
+
+    @classmethod
     def probabilistic_mask_to_rgb_image(cls, mask, threshold=0.0):
         """
         Colorize prediction mask.

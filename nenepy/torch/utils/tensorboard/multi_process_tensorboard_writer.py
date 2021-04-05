@@ -1,61 +1,161 @@
-from nenepy.torch.utils.tensorboard.tensorboard_writer import Type
-from nenepy.utils.multi.multi_task_process_manager import MultiTaskProcessManager
+from enum import Enum, auto
+from pathlib import Path
+from nenepy.torch.utils.tensorboard import TensorBoardWriter
+from nenepy.utils.multi import MultiProcess
 
 
-class MultiTaskTensorBoardWriter(MultiTaskProcessManager):
+# ==================================================================================================
+#
+#   Type
+#
+# ==================================================================================================
+class Type(Enum):
+    SCALAR = auto()
+    SCALARS = auto()
+    IMAGE = auto()
+    IMAGES = auto()
+    IMAGE_WITH_FUNCTION = auto()
+    IMAGES_WITH_FUNCTION = auto()
+    COMPLETE = auto()
 
-    def add_images_with_process(self, func, args, tag, step):
-        self.add_task(Type.IMAGES_WITH_FUNCTION, ((func, args), (tag, step)))
-        self._change_next_process()
 
-    def add_scalar(self, namespace, graph_name, scalar_value, step):
+# ==================================================================================================
+#
+#   TensorBoardWriter
+#
+# ==================================================================================================
+class MultiProcessTensorBoardWriter(MultiProcess):
+
+    def __init__(self, log_dir):
         """
 
         Args:
-            namespace (str):
-            graph_name (str):
-            scalar_value (float):
-            step (int):
+            log_dir:
 
         """
-        self.add_task(Type.SCALAR, (namespace, graph_name, scalar_value, step))
-        self._change_next_process()
+        super(MultiProcessTensorBoardWriter, self).__init__()
+        Path(log_dir).mkdir(parents=True, exist_ok=True)
 
-    def add_scalars(self, namespace, graph_name, scalar_dict, step):
-        """
+        self._log_dir = log_dir
+        self._writer = None
 
-        Args:
-            namespace (str):
-            graph_name (str):
-            scalar_dict (dict[str, torch.Tensor]):
-            step (int):
+    # ==================================================================================================
+    #
+    #
+    #   Main Process
+    #
+    #
+    # ==================================================================================================
+    # ==================================================================================================
+    #
+    #   Instance Method (Public)
+    #
+    # ==================================================================================================
+    def on_start(self):
+        self._writer = TensorBoardWriter(log_dir=self._log_dir)
 
-        """
-        self.add_task(Type.SCALARS, (namespace, graph_name, scalar_dict, step))
-        self._change_next_process()
+    def on_exit(self):
+        self._writer.close()
+    #
+    # def add_scalar(self, namespace, graph_name, scalar_value, step):
+    #     """
+    #
+    #     Args:
+    #         namespace (str):
+    #         graph_name (str):
+    #         scalar_value (float):
+    #         step (int):
+    #
+    #     """
+    #     self.add_task(Type.SCALAR, (namespace, graph_name, scalar_value, step))
+    #
+    # def add_scalars(self, namespace, graph_name, scalar_dict, step):
+    #     """
+    #
+    #     Args:
+    #         namespace (str):
+    #         graph_name (str):
+    #         scalar_dict (dict[str, torch.Tensor]):
+    #         step (int):
+    #
+    #     """
+    #     self.add_task(Type.SCALARS, (namespace, graph_name, scalar_dict, step))
+    #
+    # def add_image(self, namespace, name, image, step):
+    #     """
+    #
+    #     Args:
+    #         namespace (str):
+    #         name (str):
+    #         image (torch.Tensor):
+    #         step (int):
+    #
+    #     """
+    #     self.add_task(Type.IMAGE, (namespace, name, image, step))
+    #
+    # def add_images(self, namespace, image_dict, step):
+    #     """
+    #
+    #     Args:
+    #         namespace (str):
+    #         image_dict (dict[str, torch.Tensor]):
+    #         step (int):
+    #
+    #     """
+    #     for name, image in image_dict.items():
+    #         self.add_task(Type.IMAGES, (namespace, name, image, step))
 
-    def add_image(self, namespace, name, image, step):
-        """
+    #
+    # def add_image_with_process(self, func, args, namespace, step):
+    #     self.add_task(Type.IMAGE_WITH_FUNCTION, ((func, args), (namespace, step)))
+    #
+    # def add_images_with_process(self, func, args, namespace, step):
+    #     self.add_task(Type.IMAGES_WITH_FUNCTION, ((func, args), (namespace, step)))
 
-        Args:
-            namespace (str):
-            name (str):
-            image (torch.Tensor):
-            step (int):
+    # ==================================================================================================
+    #
+    #
+    #   Sub Process
+    #
+    #
+    # ==================================================================================================
+    # ==================================================================================================
+    #
+    #   Override
+    #
+    # ==================================================================================================
+    def process(self, *task):
+        self._write(*task)
 
-        """
-        self.add_task(Type.IMAGE, (namespace, name, image, step))
-        self._change_next_process()
+    # ==================================================================================================
+    #
+    #   Instance Method (private)
+    #
+    # ==================================================================================================
+    def _write(self, data_type, args):
+        if data_type is Type.SCALAR:
+            self._writer.add_scalar(*args)
 
-    def add_images(self, tag, image_dict, step):
-        """
+        elif data_type is Type.SCALARS:
+            self._writer.add_scalars(*args)
 
-        Args:
-            tag (str):
-            image_dict (dict[str, torch.Tensor]):
-            step (int):
+        elif data_type is Type.IMAGE:
+            self._writer.add_image(*args)
 
-        """
-        for name, image in image_dict.items():
-            self.add_task(Type.IMAGES, (tag, name, image, step))
-            self._change_next_process()
+        elif data_type is Type.IMAGES:
+            self._writer.add_images(*args)
+
+        elif data_type is Type.IMAGE_WITH_FUNCTION:
+            (func, func_args), (namespace, name, step) = args
+            image = func(*func_args)
+            self._writer.add_image(namespace, name, image, step)
+
+        elif data_type is Type.IMAGES_WITH_FUNCTION:
+            (func, func_args), (namespace, step) = args
+            images = func(*func_args)
+            self._writer.add_images(namespace, images, step)
+
+        else:
+            raise TypeError(data_type)
+
+        self._writer.flush()

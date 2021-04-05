@@ -1,25 +1,3 @@
-from enum import Enum, auto
-
-
-# ==================================================================================================
-#
-#   Type
-#
-# ==================================================================================================
-class Type(Enum):
-    SCALAR = auto()
-    SCALARS = auto()
-    IMAGE = auto()
-    IMAGES = auto()
-    IMAGES_WITH_FUNCTION = auto()
-    COMPLETE = auto()
-
-
-# ==================================================================================================
-#
-#   TensorBoardWriter
-#
-# ==================================================================================================
 class TensorBoard:
 
     @classmethod
@@ -66,7 +44,7 @@ class TensorBoard:
             name (str):
 
         """
-        cls.check_to_contain_forbidden_char(namespace, name)
+        # cls.check_to_contain_forbidden_char(namespace, name)
         return f"{namespace}/{name}"
 
     @classmethod

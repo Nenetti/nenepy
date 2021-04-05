@@ -13,7 +13,7 @@ class ClassConfig(Config):
         super(ClassConfig, self).__init__(**kwargs)
         self._cls = cls
         self._kwargs = AttrDict(kwargs)
-        args = set(inspect.signature(self._cls).parameters.keys())
+        args = set(inspect.signature(self._cls.__init__).parameters.keys())
         for key in kwargs.keys():
             if key not in args:
                 raise KeyError(f"'{key}' is not needed, {cls} has {args}")

@@ -39,7 +39,11 @@ class Config(AttrDict):
 
         """
         # ----- Write and Output ----- #
-        with open(Path(file_dir).joinpath(file_name), "w") as f:
+        file_dir = Path(file_dir)
+        if not file_dir.exists():
+            file_dir.mkdir(parents=True)
+
+        with open(file_dir.joinpath(file_name), "w") as f:
             cfg_dict = AttrDict()
             cfg_dict.merge(self)
             out_dict = self._to_output_format(cfg_dict)

@@ -44,7 +44,7 @@ class Value(AbstractModule):
     @classmethod
     def calc_max_each_dim_size(cls, tensors, max_n_dims):
         def func(tensor):
-            each_size = np.zeros(shape=max_n_dims, dtype=np.int)
+            each_size = np.zeros(shape=max_n_dims, dtype=np.int32)
             shapes = cls._tensor_to_str(tensor)
             for i, value_str in enumerate(shapes):
                 each_size[i] = len(value_str)
