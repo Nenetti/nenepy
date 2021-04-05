@@ -40,6 +40,6 @@ class TimeBoard(TensorBoardWriter):
         self._total_elapsed_time += elapsed_time
         time_chart_scalar_dict = {self._scalar_name: elapsed_time}
         elapsed_time_scalar_dict = {self._scalar_name: self._total_elapsed_time}
-        self.add_scalars(namespace=self._NAMESPACE, graph_name="Time Chart", scalar_dict=time_chart_scalar_dict, step=epoch)
-        self.add_scalars(namespace=self._NAMESPACE, graph_name="Elapsed Time", scalar_dict=elapsed_time_scalar_dict, step=epoch)
+        self.add_scalars(namespace=self._NAMESPACE, graph_name="Time-Chart", scalar_dict=time_chart_scalar_dict, step=epoch)
+        self.add_scalars(namespace=self._NAMESPACE, graph_name="Elapsed-Time", scalar_dict=elapsed_time_scalar_dict, step=epoch)
         self.flush()

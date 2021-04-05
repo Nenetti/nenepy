@@ -26,6 +26,17 @@ class AbstractModel(metaclass=ABCMeta):
         self._loss_func = loss_func
         self._device = "cpu"
 
+    @property
+    def lr_dict(self):
+        if self._scheduler is not None:
+            return dict([(f"Param{i}", lr) for i, lr in enumerate(self._scheduler.get_last_lr())])
+
+        elif self._optimizer is not None:
+            return dict([(f"Param{i}", group["lr"]) for i, group in enumerate(self._optimizer.param_groups)])
+
+        else:
+            return None
+
     def to(self, device):
         """
         Args:

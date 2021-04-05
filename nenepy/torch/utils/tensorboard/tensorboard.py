@@ -61,5 +61,5 @@ class TensorBoard:
     @staticmethod
     def check_to_contain_forbidden_char(*texts):
         for text in texts:
-            if "/" in text or "_" in text:
-                raise ValueError(f"It cannot contain '/' and '_' -> '{text}' contains ")
+            if "/" in text or "_" in text or " " in text:
+                raise ValueError(f"It cannot contain '/' , '_' and ' ' -> '{text}' contains ")

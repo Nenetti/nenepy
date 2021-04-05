@@ -35,7 +35,6 @@ class DataLoader(TorchDataLoader):
         n_data = len(dataset)
         if (n_data % batch_size == 1) and (not drop_last):
             warnings.warn("Dataloader drop_last \"False\" -> \"True\".")
-            drop_last = True
 
         if break_iteration == -1:
             kwargs.update({"batch_size": batch_size, "shuffle": shuffle, "drop_last": drop_last})

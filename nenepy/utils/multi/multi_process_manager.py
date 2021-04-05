@@ -9,7 +9,7 @@ class MultiProcessManager:
         """
 
         Args:
-            target_cls (MultiTaskProcess cls):
+            target_cls (MultiProcess cls):
             args:
             kwargs:
 
@@ -38,18 +38,22 @@ class MultiProcessManager:
         for process in self._processes:
             process.start()
 
+    def set_task(self, process_id, args):
+        if not self._target_process.is_closed:
+            self._processes[process_id].add_task(*args)
+
     def add_task(self, *args):
         if not self._target_process.is_closed:
             self._target_process.add_task(*args)
             self._change_next_process()
 
-    def wait_process_completed(self):
+    def wait_processes_completed(self):
         while not self.is_processes_completed():
             time.sleep(0.1)
 
     def is_processes_completed(self):
         for process in self._processes:
-            if not process.is_process_completed():
+            if not process.is_process_completed:
                 return False
 
         return True
