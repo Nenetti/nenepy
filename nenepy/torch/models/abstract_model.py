@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 
 from nenepy.torch.interfaces import Mode
+from torch import optim
 
 
 class AbstractModel(metaclass=ABCMeta):
@@ -15,6 +16,10 @@ class AbstractModel(metaclass=ABCMeta):
         """
 
         Args:
+            network_module (nn.Module):
+            loss_func (nn.Module):
+            optimizer (optim.Optimizer):
+            scheduler (optim.lr_scheduler.LambdaLR):
 
         """
         # ----- Network ----- #
