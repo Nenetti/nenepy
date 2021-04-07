@@ -35,7 +35,7 @@ class NetworkArchitecture(AbstractModule):
                 return ""
 
         if len(self.module.child_modules) > 0:
-            return recursive(self.module.child_modules[0])
+            return recursive(self.module) + self._to_connect_format()
         else:
             return recursive(self.module)
 
@@ -49,9 +49,9 @@ class NetworkArchitecture(AbstractModule):
                 return ""
 
         if self.module.parent_module is not None:
-            return recursive(self.module.parent_module) + f"{'│ ':>{self.indent_space}}"
+            return recursive(self.module.parent_module) + self._to_connect_format()
         else:
-            return "" + f"{' ':>{self.indent_space}}"
+            return self._to_unconnect_format()
 
     # ==================================================================================================
     #
@@ -88,10 +88,17 @@ class NetworkArchitecture(AbstractModule):
     @classmethod
     def _to_connection_format(cls, module):
         if module.is_last_module_in_sequential:
-            text = ""
+            return cls._to_unconnect_format()
         else:
-            text = "│ "
-        return f"{text:>{cls.indent_space}}"
+            return cls._to_connect_format()
+
+    @classmethod
+    def _to_connect_format(cls):
+        return f"{'│ ':>{cls.indent_space}}"
+
+    @classmethod
+    def _to_unconnect_format(cls):
+        return f"{'':>{cls.indent_space}}"
 
     @classmethod
     def _to_directory_format(cls, module):
