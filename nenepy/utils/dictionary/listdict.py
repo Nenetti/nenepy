@@ -3,7 +3,7 @@ from nenepy.utils.dictionary import AttrDict
 
 
 class ListDict(AttrDict):
-    EXCLUDES = ("_init_size", "_size_dict")
+    EXCLUDES = ("_init_size", "_is_init_size", "_size_dict")
 
     def __init__(self, *args, **kwargs):
         super(ListDict, self).__init__(*args, **kwargs)
@@ -12,6 +12,7 @@ class ListDict(AttrDict):
     def init_size(cls, init_size=-1, keys=[]):
         instance = cls()
         instance._init_size = init_size
+        instance._is_init_size = (init_size == -1)
         instance._size_dict = {}
         if len(keys) > 0:
             for key in keys:
@@ -32,7 +33,7 @@ class ListDict(AttrDict):
             d (dict[str, Any]):
 
         """
-        if self._init_size == -1:
+        if self._is_init_size:
             self._add_dict(d)
         else:
             self._set_dict(d)
@@ -47,7 +48,7 @@ class ListDict(AttrDict):
         Returns:
 
         """
-        if self._init_size == -1:
+        if self._is_init_size:
             self._add_value(key, value)
         else:
             self._set_value(key, value)

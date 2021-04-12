@@ -13,7 +13,7 @@ from nenepy.torch.utils.summary.modules.module import Module
 
 class TorchSummary:
 
-    def __init__(self, model, batch_size=2, is_validate=False, device="cuda", is_exit=False):
+    def __init__(self, model, batch_size=2, is_validate=False, display_delay_time=0, device="cuda", is_exit=True):
         """
 
         Args:
@@ -23,9 +23,11 @@ class TorchSummary:
         """
         self.model = model.to(device)
         self.batch_size = batch_size
+        self.display_delay_time = display_delay_time
         self.device = device
         self.hooks = []
         self.modules = []
+        self.modules_dict = dict()
         self.roots = []
         self.ordered_modules = []
         self.is_exit = is_exit
@@ -49,6 +51,8 @@ class TorchSummary:
 
     def forward_tensor(self, input_tensor, **kwargs):
         if not isinstance(input_tensor, (tuple, list, dict, set)):
+            if isinstance(input_tensor, torch.Tensor):
+                input_tensor = input_tensor.to(self.device)
             input_tensor = [input_tensor]
 
         return self._forward(input_tensor, **kwargs)
@@ -65,6 +69,7 @@ class TorchSummary:
         self.model.apply(self._register_hook)
         out = self.model(*x, **kwargs)
 
+        sleep(self.display_delay_time)
         self._print_network()
 
         self._remove()
@@ -125,7 +130,16 @@ class TorchSummary:
             module_in:
 
         """
-        summary_module = Module()
+
+        module_id = len(self.modules_dict) + 1
+        is_duplicated = False
+        if module in self.modules_dict:
+            module_id = self.modules_dict[module]
+            is_duplicated = True
+        else:
+            self.modules_dict[module] = module_id
+
+        summary_module = Module(module, module_id, is_duplicated)
         if len(self.modules) == 0:
             summary_module.is_root = True
             self.roots.append(summary_module)
@@ -144,7 +158,8 @@ class TorchSummary:
         """
         summary_module, start_time = self.modules.pop(-1)
         summary_module.processing_time = time.time() - start_time
-        summary_module.initialize(module, module_in, module_out)
+
+        summary_module.init_in_out(module_in, module_out)
 
         if len(summary_module.child_modules) > 0:
             summary_module.child_modules[-1].is_last_module_in_sequential = True

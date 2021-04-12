@@ -92,7 +92,6 @@ class Value(AbstractModule):
             elif isinstance(value, Value):
                 return [value.value] if value.is_tensor else []
             else:
-                print(type(value))
                 raise TypeError()
 
         return recursive(values)

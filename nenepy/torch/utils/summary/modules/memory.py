@@ -57,7 +57,6 @@ class Memory(AbstractModule):
         output_tensors = Output.get_all_tensors([module.output for module in modules])
         input_tensors = Output.get_all_tensors([module.input for module in modules])
         tensors = list(set(input_tensors + output_tensors))
-        print(len(tensors))
 
         params = np.sum([cls._get_n_params(module.parameter) for module in modules], axis=0)
         trainable_n_weights, non_trainable_n_weights, trainable_n_biases, non_trainable_n_biases = params

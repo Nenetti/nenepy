@@ -12,14 +12,16 @@ from .time import Time
 
 class Module(AbstractModule):
 
-    def __init__(self, ):
+    def __init__(self, module, module_id, is_duplicated):
         """
 
         Args:
             module (nn.Module):
         """
         super(Module, self).__init__()
-        self.module = None
+        self.module = module
+        self.module_id = module_id
+        self.is_duplicated = is_duplicated
         self.input = None
         self.output = None
         self.parameter = None
@@ -32,11 +34,10 @@ class Module(AbstractModule):
         self.is_root = False
         self.is_last_module_in_sequential = False
 
-    def initialize(self, module, module_in, module_out):
-        self.module = module
-        self.input = Input(module, module_in)
+    def init_in_out(self, module_in, module_out):
+        self.input = Input(self.module, module_in)
         self.output = Output(module_out)
-        self.parameter = Parameter(module)
+        self.parameter = Parameter(self.module)
         self.network_architecture = NetworkArchitecture(self)
         self.time = Time(self.processing_time)
 
@@ -45,7 +46,8 @@ class Module(AbstractModule):
 
     @property
     def module_name(self):
-        return self.module.__class__.__name__
+        module_id = f"(*{self.module_id})" if self.is_duplicated else f"({self.module_id})"
+        return f"{module_id} {self.module.__class__.__name__}"
 
     @classmethod
     def to_summary_text(cls, modules):
