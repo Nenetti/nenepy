@@ -26,7 +26,7 @@ class MultiProcessTensorBoardWriteManager(MultiProcessManager):
             step (int):
 
         """
-        self.add_task(Type.SCALARS, (namespace, graph_name, scalar_dict, step))
+        self.set_task(process_id=0, args=(Type.SCALARS, (namespace, graph_name, scalar_dict, step)))
 
     def add_image(self, namespace, name, image, step):
         """

@@ -1,4 +1,5 @@
 import numpy as np
+
 from nenepy.utils.dictionary import AttrDict
 
 
@@ -12,7 +13,7 @@ class ListDict(AttrDict):
     def init_size(cls, init_size=-1, keys=[]):
         instance = cls()
         instance._init_size = init_size
-        instance._is_init_size = (init_size == -1)
+        instance._is_init_size = (init_size != -1)
         instance._size_dict = {}
         if len(keys) > 0:
             for key in keys:
@@ -34,9 +35,13 @@ class ListDict(AttrDict):
 
         """
         if self._is_init_size:
-            self._add_dict(d)
+            for key, value in d.items():
+                index = self._size_dict[key]
+                self[key][index] = value
+                self._size_dict[key] = index + 1
         else:
-            self._set_dict(d)
+            for key, value in d.items():
+                self[key].append(value)
 
     def add_value(self, key, value):
         """
@@ -49,26 +54,17 @@ class ListDict(AttrDict):
 
         """
         if self._is_init_size:
-            self._add_value(key, value)
+            index = self._size_dict[key]
+            self[key][index] = value
+            self._size_dict[key] = index + 1
         else:
-            self._set_value(key, value)
+            self[key].append(value)
 
     # ==================================================================================================
     #
     #   Private Method
     #
     # ==================================================================================================
-    def _add_value(self, key, value):
-        if key in self:
-            self[key].append(value)
-        else:
-            self[key] = [value]
-
-    def _set_value(self, key, value):
-        index = self._size_dict[key]
-        self[key][index] = value
-        self._size_dict[key] = index + 1
-
     def _add_dict(self, d):
         """
 

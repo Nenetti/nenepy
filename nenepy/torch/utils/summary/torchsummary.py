@@ -1,11 +1,9 @@
 import sys
 import time
-from collections import OrderedDict
 from time import sleep
 
 import torch
 import torch.nn as nn
-from torch.optim import Adam
 
 from nenepy.torch.utils.summary.modules.block_printer import BlockPrinter
 from nenepy.torch.utils.summary.modules.module import Module
@@ -13,7 +11,7 @@ from nenepy.torch.utils.summary.modules.module import Module
 
 class TorchSummary:
 
-    def __init__(self, model, batch_size=2, is_validate=False, display_delay_time=0, device="cuda", is_exit=True):
+    def __init__(self, model, batch_size=2, is_train=False, is_print=True, display_delay_time=0, device="cuda", is_exit=True):
         """
 
         Args:
@@ -25,16 +23,17 @@ class TorchSummary:
         self.batch_size = batch_size
         self.display_delay_time = display_delay_time
         self.device = device
+        self.is_print = is_print
         self.hooks = []
         self.modules = []
         self.modules_dict = dict()
         self.roots = []
         self.ordered_modules = []
         self.is_exit = is_exit
-        if is_validate:
-            self.model.eval()
-        else:
+        if is_train:
             self.model.train()
+        else:
+            self.model.eval()
 
     # ==================================================================================================
     #
@@ -70,7 +69,8 @@ class TorchSummary:
         out = self.model(*x, **kwargs)
 
         sleep(self.display_delay_time)
-        self._print_network()
+        if self.is_print:
+            self._print_network()
 
         self._remove()
 
