@@ -5,7 +5,7 @@ from torch import nn
 
 from nenepy.torch.nn.architectures.backbones import ResNeXt50_32x4d, ResNeXt101_32x8d, WideResNet50_2, WideResNet101_2
 from nenepy.torch.nn.architectures.backbones import ResNet50, ResNet18, ResNet34, ResNet101, ResNet152
-from nenepy.torch.nn.modules import Upsample, ASPP
+from nenepy.torch.nn.modules import Upsample, AtrousSpatialPyramidPooling
 
 backbone_list = [ResNet18, ResNet34, ResNet50, ResNet101, ResNet152, ResNeXt50_32x4d, ResNeXt101_32x8d, WideResNet50_2, WideResNet101_2]
 
@@ -23,7 +23,7 @@ class DeepLabV3Plus(nn.Module):
 
     def _init_encoder(self, in_channels, backbone_cls, backbone_pretrained, backbone_kwargs):
         self._backbone = backbone_cls(in_channels=in_channels, reduction_rate=16, pretrained=backbone_pretrained, is_feature_extraction=True)
-        self._aspp = ASPP(in_channels=2048, out_channels=256, output_stride=8)
+        self._aspp = AtrousSpatialPyramidPooling(in_channels=2048, out_channels=256, output_stride=8)
 
     def _init_decoder(self, out_channels):
         self._upsampling_x4 = Upsample(scale_factor=4, mode="bilinear", align_corners=True)

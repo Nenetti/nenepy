@@ -52,5 +52,12 @@ class Timer:
 
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
+    def __enter__(self):
+        self.start()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.stop()
+        print(self.elapsed_time)
+
     def __str__(self):
         return f"{time.time() - self._start_time}"

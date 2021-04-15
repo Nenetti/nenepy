@@ -3,7 +3,7 @@ from torch import nn
 from nenepy.torch.nn.architectures import AbstractNetworkArchitecture
 from nenepy.torch.nn.architectures.backbones import ResNeXt50_32x4d, ResNeXt101_32x8d, WideResNet50_2, WideResNet101_2
 from nenepy.torch.nn.architectures.backbones import ResNet50, ResNet18, ResNet34, ResNet101, ResNet152
-from nenepy.torch.nn.modules import GlobalCueInjection, StochasticGate, ASPP, Upsample
+from nenepy.torch.nn.modules import GlobalCueInjection, StochasticGate, AtrousSpatialPyramidPooling, Upsample
 from nenepy.torch.nn.modules.concat import Concat
 
 backbone_list = [ResNet18, ResNet34, ResNet50, ResNet101, ResNet152, ResNeXt50_32x4d, ResNeXt101_32x8d, WideResNet50_2, WideResNet101_2]
@@ -41,7 +41,7 @@ class DeepLabV3Plus(AbstractNetworkArchitecture):
 
         self._gci = GlobalCueInjection()
 
-        self._aspp = ASPP(in_channels=2048, output_stride=8)
+        self._aspp = AtrousSpatialPyramidPooling(in_channels=2048, output_stride=8)
 
         self._stochastic_gate = StochasticGate()
 

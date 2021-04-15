@@ -3,7 +3,7 @@ import torch.nn as nn
 from nenepy.torch.nn.modules.concat import Concat
 from torch.functional import F
 
-class ASPP(nn.Module):
+class AtrousSpatialPyramidPooling(nn.Module):
     def __init__(self, in_channels, out_channels=256, output_stride=8):
         """
 
@@ -12,7 +12,7 @@ class ASPP(nn.Module):
             output_stride (int):
 
         """
-        super(ASPP, self).__init__()
+        super(AtrousSpatialPyramidPooling, self).__init__()
 
         if output_stride == 16:
             dilations = [1, 6, 12, 18]

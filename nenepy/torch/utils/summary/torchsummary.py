@@ -116,8 +116,8 @@ class TorchSummary:
             module (nn.Module):
 
         """
-        if (isinstance(module, nn.Sequential)) or (isinstance(module, nn.ModuleList)):
-            return
+        # if (isinstance(module, nn.Sequential)) or (isinstance(module, nn.ModuleList)):
+        #     return
 
         self.hooks.append(module.register_forward_pre_hook(self._pre_hook))
         self.hooks.append(module.register_forward_hook(self._hook))
