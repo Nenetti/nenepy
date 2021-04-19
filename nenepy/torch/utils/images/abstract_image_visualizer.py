@@ -400,19 +400,23 @@ class AbstractImageVisualizer:
         return out_image
 
     @staticmethod
-    def _calc_optimal_grid_size(n_images, max_n_column):
+    def _calc_optimal_grid_size(n_images, n_target_column=-1):
         """
         Calculate optimal grid size.
 
         Args:
             n_images (int):
-            max_n_column (int):
+            n_target_column (int):
 
         Returns:
             (int, int):
 
         """
-        n_column = min(n_images, max_n_column)
+        if n_target_column == -1:
+            n_column = np.ceil(np.sqrt(n_images))
+        else:
+            n_column = min(n_images, n_target_column)
+
         if n_column < n_images:
             n_rows = np.ceil(n_images / n_column)
         else:

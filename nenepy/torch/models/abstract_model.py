@@ -132,7 +132,10 @@ class AbstractModel(metaclass=ABCMeta):
         self._network_module.eval()
 
     def to_test_mode(self):
-        self._network_module.eval()
+        self._network_module.test()
+
+    def to_pretrain_mode(self):
+        self._network_module.pretrain()
 
     def load_weight(self, path=None):
         """

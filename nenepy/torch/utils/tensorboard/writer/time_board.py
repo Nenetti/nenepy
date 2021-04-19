@@ -1,18 +1,18 @@
 from nenepy.torch.utils.tensorboard import TensorBoardWriter
 
 
-class TimeBoard(TensorBoardWriter):
+class TimeBoard:
     _NAMESPACE = "Time"
 
-    def __init__(self, log_dir, scalar_name):
+    def __init__(self, tensorboard, scalar_name):
         """
 
         Args:
-            log_dir:
+            tensorboard (TensorBoardWriter):
             scalar_name (str):
 
         """
-        super(TimeBoard, self).__init__(log_dir)
+        self._tensorboard = tensorboard
         self._scalar_name = scalar_name
         self._total_elapsed_time = 0
 
@@ -40,6 +40,5 @@ class TimeBoard(TensorBoardWriter):
         self._total_elapsed_time += elapsed_time
         time_chart_scalar_dict = {self._scalar_name: elapsed_time}
         elapsed_time_scalar_dict = {self._scalar_name: self._total_elapsed_time}
-        self.add_scalars(namespace=self._NAMESPACE, graph_name="Time-Chart", scalar_dict=time_chart_scalar_dict, step=epoch)
-        self.add_scalars(namespace=self._NAMESPACE, graph_name="Elapsed-Time", scalar_dict=elapsed_time_scalar_dict, step=epoch)
-        self.flush()
+        self._tensorboard.add_scalars(namespace=self._NAMESPACE, graph_name="Time-Chart", scalar_dict=time_chart_scalar_dict, step=epoch)
+        self._tensorboard.add_scalars(namespace=self._NAMESPACE, graph_name="Elapsed-Time", scalar_dict=elapsed_time_scalar_dict, step=epoch)

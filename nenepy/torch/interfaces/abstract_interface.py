@@ -32,7 +32,7 @@ class AbstractInterface(metaclass=ABCMeta):
         self._model = model
 
         # ----- Log ----- #
-        self._time_board = TimeBoard(log_dir, self._mode.name)
+        self._time_board = TimeBoard(tensorboard, self._mode.name)
         self._tensorboard = tensorboard
 
         # ----- etc ----- #

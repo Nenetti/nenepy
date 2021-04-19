@@ -5,13 +5,14 @@ from time import sleep
 import torch
 import torch.nn as nn
 
+from nenepy.torch.interfaces import Mode
 from nenepy.torch.utils.summary.modules.block_printer import BlockPrinter
 from nenepy.torch.utils.summary.modules.module import Module
 
 
 class TorchSummary:
 
-    def __init__(self, model, batch_size=2, is_train=False, is_print=True, display_delay_time=0, device="cuda", is_exit=True):
+    def __init__(self, model, batch_size=2, mode=Mode.TRAIN, is_print=True, display_delay_time=0, device="cuda", is_exit=True):
         """
 
         Args:
@@ -30,9 +31,13 @@ class TorchSummary:
         self.roots = []
         self.ordered_modules = []
         self.is_exit = is_exit
-        if is_train:
+        if mode == Mode.TRAIN:
             self.model.train()
-        else:
+        elif mode == Mode.PRETRAIN:
+            self.model.pretrain()
+        elif mode == Mode.VALIDATE:
+            self.model.test()
+        elif mode == Mode.VALIDATE:
             self.model.eval()
 
     # ==================================================================================================
