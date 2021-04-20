@@ -1,11 +1,12 @@
-from torch.utils.data import DataLoader as TorchDataLoader, Dataset
-from torch.utils.data import SequentialSampler
-from tqdm import tqdm
+import warnings
 
+import torch
 from nenepy.torch.interfaces import Mode
 from nenepy.torch.utils.data import DesignatedIterativeBatchSampler
 from nenepy.torch.utils.data.IterativeRandomSampler import IterativeRandomSampler
-import warnings
+from torch.utils.data import DataLoader as TorchDataLoader, Dataset
+from torch.utils.data import SequentialSampler
+from tqdm import tqdm
 
 
 class DataLoader(TorchDataLoader):
@@ -53,6 +54,9 @@ class DataLoader(TorchDataLoader):
             pin_memory=pin_memory,
             **kwargs
         )
+
+    def _to_device(self, *args):
+        return [arg.to(self._device) if isinstance(arg, torch.Tensor) else arg for arg in args]
 
     def tqdm(self):
         return tqdm(self, leave=False, ascii=True)

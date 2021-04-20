@@ -11,7 +11,7 @@ from nenepy.utils import Timer
 
 class AbstractInterface(metaclass=ABCMeta):
 
-    def __init__(self, log_dir, model, dataloader, mode, tensorboard):
+    def __init__(self, model, dataloader, mode, tensorboard):
         """
 
         Args:

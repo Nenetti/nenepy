@@ -1,23 +1,19 @@
 from abc import ABCMeta, abstractmethod
-from collections import OrderedDict
-from inspect import signature
 from pathlib import Path
 
 import torch
 import torch.nn as nn
-
-from nenepy.torch.interfaces import Mode
 from torch import optim
 
 
 class AbstractModel(metaclass=ABCMeta):
 
-    def __init__(self, network_module=None, optimizer=None, scheduler=None, loss_func=None):
+    def __init__(self, network_module=None, optimizer=None, scheduler=None, loss=None):
         """
 
         Args:
             network_module (nn.Module):
-            loss_func (nn.Module):
+            loss (nn.Module):
             optimizer (optim.Optimizer):
             scheduler (optim.lr_scheduler.LambdaLR):
 
@@ -28,7 +24,7 @@ class AbstractModel(metaclass=ABCMeta):
         # ----- Optimizer and Scheduler ----- #
         self._optimizer = optimizer
         self._scheduler = scheduler
-        self._loss_func = loss_func
+        self._loss_func = loss
         self._device = "cpu"
 
     @property
@@ -104,11 +100,11 @@ class AbstractModel(metaclass=ABCMeta):
     #
     # ==================================================================================================
     @abstractmethod
-    def train_step(self, *args, **kwargs):
+    def training_step(self, *args, **kwargs):
         raise NotImplementedError()
 
     @abstractmethod
-    def validate_step(self, *args, **kwargs):
+    def validation_step(self, *args, **kwargs):
         raise NotImplementedError()
 
     @abstractmethod
@@ -125,17 +121,11 @@ class AbstractModel(metaclass=ABCMeta):
         if self._scheduler is not None:
             self._scheduler.step()
 
-    def to_train_mode(self):
+    def train_mode(self):
         self._network_module.train()
 
-    def to_validate_mode(self):
+    def validate_mode(self):
         self._network_module.eval()
-
-    def to_test_mode(self):
-        self._network_module.test()
-
-    def to_pretrain_mode(self):
-        self._network_module.pretrain()
 
     def load_weight(self, path=None):
         """
@@ -202,4 +192,7 @@ class AbstractModel(metaclass=ABCMeta):
 
             return arg
 
-        return recursive(args)
+        if len(args) == 1:
+            return recursive(args[0])
+        else:
+            return (recursive(arg) for arg in args)

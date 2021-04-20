@@ -1,11 +1,8 @@
-import inspect
-import pprint
-
 import torch
 from torch import nn
-from torchvision.models.resnet import ResNet as TorchResNet, conv1x1
 from torchvision.models.resnet import BasicBlock as TorchBasicBlock
 from torchvision.models.resnet import Bottleneck as TorchBottleneck
+from torchvision.models.resnet import ResNet as TorchResNet, conv1x1
 
 
 class BasicBlock(TorchBasicBlock):
@@ -185,6 +182,22 @@ class ResNet(TorchResNet):
         x5 = self.layer4(x4)
 
         return x1, x2, x3, x4, x5
+
+    def _forward_impl(self, x):
+        x1 = self.conv1(x)
+        x1 = self.bn1(x1)
+        x1 = self.relu(x1)
+
+        x2 = self.layer1(self.maxpool(x1))
+        x3 = self.layer2(x2)
+        x4 = self.layer3(x3)
+        x5 = self.layer4(x4)
+
+        x6 = self.avgpool(x5)
+        x6 = torch.flatten(x6, 1)
+        x7 = self.fc(x6)
+
+        return x1, x2, x3, x4, x5, x6, x7
 
     def train(self, mode=True):
         if mode:
