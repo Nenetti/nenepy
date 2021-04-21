@@ -37,11 +37,11 @@ class ListDict(AttrDict):
         if self._is_init_size:
             for key, value in d.items():
                 index = self._size_dict[key]
-                self[key][index] = value
+                self[key][index] = np.atleast_1d(value)
                 self._size_dict[key] = index + 1
         else:
             for key, value in d.items():
-                self[key].append(value)
+                self[key].append(np.atleast_1d(value))
 
     def add_value(self, key, value):
         """
@@ -55,10 +55,10 @@ class ListDict(AttrDict):
         """
         if self._is_init_size:
             index = self._size_dict[key]
-            self[key][index] = value
+            self[key][index] = np.atleast_1d(value)
             self._size_dict[key] = index + 1
         else:
-            self[key].append(value)
+            self[key].append(np.atleast_1d(value))
 
     # ==================================================================================================
     #
@@ -74,9 +74,9 @@ class ListDict(AttrDict):
         """
         for key, value in d.items():
             if key in self:
-                self[key].append(value)
+                self[key].append(np.atleast_1d(value))
             else:
-                self[key] = [value]
+                self[key] = [np.atleast_1d(value)]
 
     def _set_dict(self, d):
         """
@@ -92,7 +92,7 @@ class ListDict(AttrDict):
                 self[key] = [None] * self._init_size
                 index = 0
 
-            self[key][index] = value
+            self[key][index] = np.atleast_1d(value)
             self._size_dict[key] = index + 1
 
     def keys(self):

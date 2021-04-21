@@ -15,6 +15,7 @@ class TensorBoardWriter(TensorBoard):
             log_dir:
 
         """
+        super(TensorBoardWriter, self).__init__()
         self._log_dir = Path(log_dir)
         self._is_already_exist = True if self._log_dir.exists() else False
         self._writer = SummaryWriter(log_dir=log_dir)

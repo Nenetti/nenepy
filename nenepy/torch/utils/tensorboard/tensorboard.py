@@ -1,7 +1,13 @@
+import warnings
+
+
 class TensorBoard:
 
-    @classmethod
-    def _to_scalar_tag(cls, namespace, graph_name):
+    def __init__(self):
+        self._tags = set()
+        self._conversions = dict()
+
+    def _to_scalar_tag(self, namespace, graph_name):
         """
 
         Args:
@@ -9,11 +15,11 @@ class TensorBoard:
             graph_name (str):
 
         """
-        cls.check_to_contain_forbidden_char(namespace, graph_name)
+        namespace, graph_name = self.check_to_contain_forbidden_char(namespace, graph_name)
         return f"{namespace}/{graph_name}"
 
-    @classmethod
-    def _decompose_scalar_tag(cls, tag):
+    @staticmethod
+    def _decompose_scalar_tag(tag):
         """
 
         Args:
@@ -23,8 +29,8 @@ class TensorBoard:
         namespace, graph_name = tag.split("/")
         return namespace, graph_name
 
-    @classmethod
-    def _decompose_scalars_dir_name(cls, dir_name):
+    @staticmethod
+    def _decompose_scalars_dir_name(dir_name):
         """
 
         Args:
@@ -35,8 +41,8 @@ class TensorBoard:
         namespace, graph_name, scalar_key = dir_name.split("/")
         return namespace, graph_name, scalar_key
 
-    @classmethod
-    def _to_image_tag(cls, namespace, name):
+    @staticmethod
+    def _to_image_tag(namespace, name):
         """
 
         Args:
@@ -44,11 +50,10 @@ class TensorBoard:
             name (str):
 
         """
-        # cls.check_to_contain_forbidden_char(namespace, name)
         return f"{namespace}/{name}"
 
-    @classmethod
-    def _decompose_image_tag(cls, tag):
+    @staticmethod
+    def _decompose_image_tag(tag):
         """
 
         Args:
@@ -58,8 +63,29 @@ class TensorBoard:
         namespace, name = tag.split("/")
         return namespace, name
 
-    @staticmethod
-    def check_to_contain_forbidden_char(*texts):
-        for text in texts:
-            if "/" in text or "_" in text or " " in text:
-                raise ValueError(f"It cannot contain '/' , '_' and ' ' -> '{text}' contains ")
+    def check_to_contain_forbidden_char(self, *texts):
+        """
+
+        Args:
+            *texts (str):
+
+        Returns:
+
+        """
+        texts = list(texts)
+        for i, text in enumerate(texts):
+            if text in self._tags:
+                continue
+            else:
+                if text in self._conversions:
+                    t = self._conversions[text]
+                    texts[i] = t
+                    self._tags.add(t)
+                elif "/" in text or "_" in text or " " in text:
+                    t = text.replace("/", "-").replace("_", "-").replace(" ", "-")
+                    warnings.warn(f"\nIt cannot contain '/' , '_' and ' ' -> '{text}' contains\nChange {text} -> {t}")
+                    texts[i] = t
+                    self._tags.add(t)
+                    self._conversions[text] = t
+
+        return texts

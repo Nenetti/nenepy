@@ -92,7 +92,7 @@ class AbstractInterface(metaclass=ABCMeta):
 
         """
         for evaluation_name, values in evaluation_dict.items():
-            scalar_dict = dict([(class_names[i], each_class_value) for i, each_class_value in enumerate(values)])
+            scalar_dict = dict([(class_names[i], class_value) for i, class_value in enumerate(values)])
             self._tensorboard.add_scalars(namespace="Evaluation", graph_name=evaluation_name, scalar_dict=scalar_dict, step=epoch)
 
         # for evaluation_name, values in evaluation_dict.items():
@@ -100,7 +100,24 @@ class AbstractInterface(metaclass=ABCMeta):
         #         statistical_dict = self._to_statistical_dict(each_class_value[i])
         #         self._tensorboard.add_scalars(namespace=f"Evaluation-{evaluation_name}", graph_name=class_names[i], scalar_dict=statistical_dict, step=epoch)
 
-    def _output_loss(self, loss_dict, epoch):
+    def _output_scores(self, class_names, score_dict, epoch):
+        """
+        Args:
+            score_dict (ListDict):
+            epoch (int):
+
+        Returns:
+
+        """
+        for name, values in score_dict.items():
+            statistical_dict = self._to_statistical_dict(values)
+            self._tensorboard.add_scalars(namespace="Score", graph_name=f"{self._mode.name}-{name}", scalar_dict=statistical_dict, step=epoch)
+
+        for name, values in score_dict.items():
+            scalar_dict = dict([(class_names[i], class_value) for i, class_value in enumerate(values)])
+            self._tensorboard.add_scalars(namespace=f"Scores", graph_name=f"{self._mode.name}-{name}", scalar_dict=scalar_dict, step=epoch)
+
+    def _output_losses(self, loss_dict, epoch):
         """
         Args:
             loss_dict (ListDict):

@@ -15,7 +15,6 @@ class FocalLoss(nn.Module):
     def forward(self, inputs, targets):
         loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction='none')
         class_weight = self.to_class_weight(targets, self._alpha) if self._class_weight is None else self._class_weight
-        # focal_loss = class_weight * ((targets - torch.sigmoid(inputs).detach()) ** self._gamma) * loss
         focal_loss = class_weight * ((1 - torch.sigmoid(inputs).detach()) ** self._gamma) * loss
         return focal_loss * ((loss.sum() / focal_loss.sum()).detach())
 
