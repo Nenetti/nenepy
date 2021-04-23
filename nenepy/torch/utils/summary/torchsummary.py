@@ -4,7 +4,6 @@ from time import sleep
 
 import torch
 import torch.nn as nn
-
 from nenepy.torch.interfaces import Mode
 from nenepy.torch.utils.summary.modules.block_printer import BlockPrinter
 from nenepy.torch.utils.summary.modules.module import Module
@@ -12,7 +11,7 @@ from nenepy.torch.utils.summary.modules.module import Module
 
 class TorchSummary:
 
-    def __init__(self, model, batch_size=2, mode=Mode.TRAIN, is_print=True, display_delay_time=0, device="cuda", is_exit=True):
+    def __init__(self, model, forward_func=None, batch_size=2, mode=Mode.TRAIN, is_print=True, display_delay_time=0, device="cuda", is_exit=True):
         """
 
         Args:
@@ -21,6 +20,7 @@ class TorchSummary:
             device:
         """
         self.model = model.to(device)
+        self.forward_func = forward_func
         self.batch_size = batch_size
         self.display_delay_time = display_delay_time
         self.device = device
@@ -53,13 +53,17 @@ class TorchSummary:
 
         return self._forward(x, **kwargs)
 
-    def forward_tensor(self, input_tensor, **kwargs):
-        if not isinstance(input_tensor, (tuple, list, dict, set)):
-            if isinstance(input_tensor, torch.Tensor):
-                input_tensor = input_tensor.to(self.device)
-            input_tensor = [input_tensor]
+    def forward_tensor(self, *input_tensor, **kwargs):
+        def recur(x):
+            if isinstance(x, torch.Tensor):
+                return x.to(self.device)
+            if isinstance(x, (tuple, list, set)):
+                return [recur(v) for v in x]
+            if isinstance(x, dict):
+                return dict([(k, recur(v)) for k, v in x.items()])
+            return x
 
-        return self._forward(input_tensor, **kwargs)
+        return self._forward(recur(input_tensor), **recur(kwargs))
 
     def __call__(self, input_tensor, **kwargs):
         return self.forward_tensor(input_tensor, **kwargs)
@@ -71,7 +75,11 @@ class TorchSummary:
     # ==================================================================================================
     def _forward(self, x, **kwargs):
         self.model.apply(self._register_hook)
-        out = self.model(*x, **kwargs)
+        if self.forward_func is not None:
+            func = getattr(self.model, self.forward_func.__name__)
+            out = func(*x, **kwargs)
+        else:
+            out = self.model(*x, **kwargs)
 
         sleep(self.display_delay_time)
         if self.is_print:
