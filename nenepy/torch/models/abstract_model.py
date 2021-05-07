@@ -8,33 +8,65 @@ from torch import optim
 
 class AbstractModel(metaclass=ABCMeta):
 
-    def __init__(self, network_module=None, optimizer=None, scheduler=None, loss=None):
+    def __init__(self, network_modules=[], optimizers=None, schedulers=None, loss_funcs=None):
         """
 
         Args:
-            network_module (nn.Module):
-            loss (nn.Module):
-            optimizer (optim.Optimizer):
-            scheduler (optim.lr_scheduler.LambdaLR):
+            network_modules (list[nn.Module] or dict[str, nn.Module]):
+            loss_funcs (list[nn.Module] or dict[str, nn.Module]):
+            optimizers (list[optim.Optimizer] or dict[str, optim.Optimizer]):
+            schedulers (list, dict):
 
         """
         # ----- Network ----- #
-        self._network_module = network_module
+        self._network_modules = network_modules if isinstance(network_modules, (tuple, list, dict)) else [network_modules]
 
         # ----- Optimizer and Scheduler ----- #
-        self._optimizer = optimizer
-        self._scheduler = scheduler
-        self._loss_func = loss
+        self._optimizers = optimizers if isinstance(optimizers, (tuple, list, dict)) else [optimizers]
+        self._schedulers = schedulers if isinstance(schedulers, (tuple, list, dict)) else [schedulers]
+        self._loss_funcs = loss_funcs if isinstance(loss_funcs, (tuple, list, dict)) else [loss_funcs]
         self._device = "cpu"
 
+    # ==================================================================================================
+    #
+    #   Abstract Method
+    #
+    # ==================================================================================================
+    @abstractmethod
+    def training_step(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def validation_step(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def test_step(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    # ==================================================================================================
+    #
+    #   Instance Method (Public)
+    #
+    # ==================================================================================================
     @property
     def lr_dict(self):
-        if self._scheduler is not None:
-            return dict([(f"Param{i}", lr) for i, lr in enumerate(self._scheduler.get_last_lr())])
-
-        elif self._optimizer is not None:
-            return dict([(f"Param{i}", group["lr"]) for i, group in enumerate(self._optimizer.param_groups)])
-
+        # if self._schedulers is not None:
+        #     return dict([(f"Param{i}", lr) for i, lr in enumerate(self._schedulers.get_last_lr())])
+        #
+        # elif self._optimizers is not None:
+        #     return dict([(f"Param{i}", group["lr"]) for i, group in enumerate(self._optimizers.param_groups)])
+        if self._optimizers is not None:
+            param_dict = {}
+            if isinstance(self._optimizers, dict):
+                for key, optimizer in self._optimizers.items():
+                    d = dict([(f"{optimizer.__class__.__name__}_{key}_{k + 1}", group["lr"]) for k, group in enumerate(optimizer.param_groups)])
+                    param_dict.update(d)
+            else:
+                for i, optimizer in enumerate(self._optimizers):
+                    d = dict([(f"{optimizer.__class__.__name__}_{i + 1}_{k + 1}", group["lr"]) for k, group in enumerate(optimizer.param_groups)])
+                    param_dict.update(d)
+                return param_dict
         else:
             return None
 
@@ -44,13 +76,101 @@ class AbstractModel(metaclass=ABCMeta):
             device (str): 'cuda' or 'cpu'
 
         """
-        self._network_module.to(device)
-        self._loss_func.to(device)
+
+        def func(modules):
+            if isinstance(modules, dict):
+                return dict([(k, v.to(device)) for k, v in modules.items()])
+            else:
+                return [v.to(device) for v in modules]
+
+        self._network_modules = func(self._network_modules)
+        self._loss_funcs = func(self._loss_funcs)
         self._device = device
 
     def to_multi_gpu(self, n_gpus):
+        def func(modules):
+            if isinstance(modules, dict):
+                return dict([(k, nn.DataParallel(v).to(self._device)) for k, v in modules.items()])
+            else:
+                return [nn.DataParallel(v).to(self._device) for v in modules]
+
         if n_gpus > 1:
-            self._network_module = nn.DataParallel(self._network_module).to(self.device)
+            self._network_modules = func(self._network_modules)
+
+    def scheduler_step(self):
+        if self._schedulers is not None:
+            if isinstance(self._schedulers, dict):
+                for scheduler in self._schedulers.values():
+                    scheduler.step()
+            else:
+                for scheduler in self._schedulers:
+                    scheduler.step()
+
+    def train_mode(self, mode=True):
+        if isinstance(self._schedulers, dict):
+            for module in self._network_modules.values():
+                module.train(mode)
+        else:
+            for module in self._network_modules:
+                module.train(mode)
+
+    def validate_mode(self):
+        self.train_mode(False)
+
+    def test_mode(self):
+        self.train_mode(False)
+
+    def load_weight(self, path=None):
+        """
+
+        Args:
+            path (Path or str):
+
+        """
+        if path is None:
+            path = self.weight_path
+
+        self._network_modules.load_state_dict(torch.load(path))
+
+    def save_weight(self, path=None):
+        """
+
+        Args:
+            path (Path or str):
+
+        """
+        if path is None:
+            path = self.weight_path
+
+        torch.save(self._network_modules.state_dict(), path)
+
+    # ==================================================================================================
+    #
+    #   Instance Method (Private)
+    #
+    # ==================================================================================================
+    def _backward(self, loss, optimizer=None):
+        if optimizer is None:
+            optimizer = self._optimizers
+
+        for group in optimizer.param_groups:
+            for p in group["params"]:
+                if p.grad is not None:
+                    p.grad = None
+
+        loss.backward()
+        optimizer.step()
+
+    def _to_device(self, *args):
+        if len(args) == 1:
+            return args[0].to(self._device)
+        return [arg.to(self._device) for arg in args]
+
+    # ==================================================================================================
+    #
+    #   Class Method (Private)
+    #
+    # ==================================================================================================
 
     @staticmethod
     def _init_weights(net, init_type="normal", init_gain=0.02):
@@ -93,83 +213,6 @@ class AbstractModel(metaclass=ABCMeta):
 
         print("initialize network with %s" % init_type)
         net.apply(initialize)  # apply the initialization function <init_func>
-
-    # ==================================================================================================
-    #
-    #   Abstract Method
-    #
-    # ==================================================================================================
-    @abstractmethod
-    def training_step(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    @abstractmethod
-    def validation_step(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    @abstractmethod
-    def test_step(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    # ==================================================================================================
-    #
-    #   Public Method
-    #
-    # ==================================================================================================
-
-    def scheduler_step(self):
-        if self._scheduler is not None:
-            self._scheduler.step()
-
-    def train_mode(self):
-        self._network_module.train()
-
-    def validate_mode(self):
-        self._network_module.eval()
-
-    def load_weight(self, path=None):
-        """
-
-        Args:
-            path (Path or str):
-
-        """
-        if path is None:
-            path = self.weight_path
-
-        self._network_module.load_state_dict(torch.load(path))
-
-    def save_weight(self, path=None):
-        """
-
-        Args:
-            path (Path or str):
-
-        """
-        if path is None:
-            path = self.weight_path
-
-        torch.save(self._network_module.state_dict(), path)
-
-    # ==================================================================================================
-    #
-    #   Private Method
-    #
-    # ==================================================================================================
-
-    def _backward(self, loss, optimizer=None):
-        if optimizer is None:
-            optimizer = self._optimizer
-
-        for group in optimizer.param_groups:
-            for p in group["params"]:
-                if p.grad is not None:
-                    p.grad = None
-        loss.backward()
-        optimizer.step()
-
-    def _to_device(self, *args):
-        return [arg.to(self._device) for arg in args]
 
     @staticmethod
     def _to_detach_cpu_numpy(*args):

@@ -54,7 +54,7 @@ time.sleep(2)
 # time.sleep(1)
 
 # summary = Summary(model, batch_size=1, is_validate=True)
-summary = TorchSummary(model, batch_size=batch_size, is_validate=False, is_exit=False)
+summary = TorchSummary(model, batch_size=batch_size, is_exit=False)
 summary.forward_tensor(input_tensor)
 
 sys.exit()

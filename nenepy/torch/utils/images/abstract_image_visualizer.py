@@ -364,7 +364,7 @@ class AbstractImageVisualizer:
             shape = images[0].shape
             is_same_shapes = [image.shape == shape for image in images[1:]]
             if False not in is_same_shapes:
-                return np.concatenate(images, axis=1)
+                return np.concatenate(images, axis=dim)
 
         # ----- Calc Image Shape ----- #
         target_shape = cls._calc_concat_shape(images, dim)

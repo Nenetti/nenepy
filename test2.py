@@ -28,7 +28,7 @@ batch_size = 1
 
 model = resnet_fpn_backbone('resnet50', pretrained=True, trainable_layers=2)
 
-summary = TorchSummary(model, batch_size=batch_size, is_validate=False, is_exit=False)
+summary = TorchSummary(model, batch_size=batch_size, is_exit=False)
 summary.forward_size(3, 256, 256)
 
 sys.exit()

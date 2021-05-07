@@ -5,6 +5,7 @@ from abc import ABCMeta, abstractmethod
 from nenepy.torch.interfaces import Mode
 from nenepy.torch.models import AbstractModel
 from nenepy.torch.utils.data import DataLoader
+from nenepy.torch.utils.tensorboard import MultiProcessTensorBoardWriteManager
 from nenepy.torch.utils.tensorboard.writer import TimeBoard
 from nenepy.utils import Timer
 
@@ -22,7 +23,6 @@ class AbstractInterface(metaclass=ABCMeta):
             tensorboard (MultiProcessTensorBoardWriteManager):
 
         """
-
         self._mode = mode
 
         # ----- Data ----- #

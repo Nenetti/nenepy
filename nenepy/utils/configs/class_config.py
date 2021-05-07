@@ -13,10 +13,10 @@ class ClassConfig(Config):
         super(ClassConfig, self).__init__(**kwargs)
         self._cls = cls
         self._kwargs = AttrDict(kwargs)
-        args = set(inspect.signature(self._cls.__init__).parameters.keys())
-        for key in kwargs.keys():
-            if key not in args:
-                raise KeyError(f"'{key}' is not needed, {cls} has {args}")
+        # args = set(inspect.signature(self._cls.__init__).parameters.keys())
+        # for key in kwargs.keys():
+        #     if key not in args:
+        #         raise KeyError(f"'{key}' is not needed, {cls} has {args}")
 
         for key, value in kwargs.items():
             self.__setattr__(key, value)

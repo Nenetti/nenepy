@@ -42,6 +42,24 @@ class Mask:
         return rgb.astype(np.float32).transpose((2, 0, 1))
 
     @classmethod
+    def to_plasma(cls, image):
+        """
+        Args:
+            image (np.ndarray): [H, W]
+
+        Returns:
+            np.ndarray:
+
+        Shapes:
+            [H, W] -> [3, H, W]
+
+        """
+        image = cls._to_2channels(image)
+
+        rgb = plt.get_cmap("plasma")(image)[:, :, :3]
+        return rgb.astype(np.float32).transpose((2, 0, 1))
+
+    @classmethod
     def to_jet(cls, image):
         """
         Args:
