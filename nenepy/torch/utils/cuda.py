@@ -26,4 +26,5 @@ class Cuda:
 
     @classmethod
     def to_synchronizing_cpu(cls):
+        print("Warning: CUDA_LAUNCH_BLOCKING was applied")
         os.environ[cls.CUDA_LAUNCH_BLOCKING] = "1"
