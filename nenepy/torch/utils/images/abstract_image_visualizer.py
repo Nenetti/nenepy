@@ -543,4 +543,4 @@ class AbstractImageVisualizer:
             ([3, H, W], [3, H, W]) -> [3, H, W]
 
         """
-        return (1.0 - alpha) * image1 + alpha * image2
+        return alpha * image1 + (1.0 - alpha) * image2

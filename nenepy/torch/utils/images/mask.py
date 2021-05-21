@@ -1,18 +1,26 @@
-import numpy as np
-import matplotlib.pyplot as plt
+from enum import Enum
 
+import matplotlib.pyplot as plt
+import numpy as np
 from nenepy.torch.utils.images.color import Color
+
+
+class HeatmapType(Enum):
+    VIRIDIS = "viridis"
+    JET = "jet"
+    PLASMA = "plasma"
 
 
 class Mask:
 
     @classmethod
-    def mask_to_heatmap(cls, mask):
+    def to_heatmap(cls, mask, heatmap_type=HeatmapType.VIRIDIS):
         """
         Create Class Activation Map.
 
         Args:
             mask (np.ndarray):
+            heatmap_type (HeatmapType):
 
         Returns:
             np.ndarray:
@@ -21,60 +29,9 @@ class Mask:
             [C, H, W] -> [3, H, W]
 
         """
-        return cls.to_jet(mask)
+        mask = cls._to_2channels(mask)
 
-    @classmethod
-    def to_viridis(cls, image):
-        """
-        Args:
-            image (np.ndarray): [H, W]
-
-        Returns:
-            np.ndarray:
-
-        Shapes:
-            [H, W] -> [3, H, W]
-
-        """
-        image = cls._to_2channels(image)
-
-        rgb = plt.get_cmap("viridis")(image)[:, :, :3]
-        return rgb.astype(np.float32).transpose((2, 0, 1))
-
-    @classmethod
-    def to_plasma(cls, image):
-        """
-        Args:
-            image (np.ndarray): [H, W]
-
-        Returns:
-            np.ndarray:
-
-        Shapes:
-            [H, W] -> [3, H, W]
-
-        """
-        image = cls._to_2channels(image)
-
-        rgb = plt.get_cmap("plasma")(image)[:, :, :3]
-        return rgb.astype(np.float32).transpose((2, 0, 1))
-
-    @classmethod
-    def to_jet(cls, image):
-        """
-        Args:
-            image (np.ndarray): [H, W]
-
-        Returns:
-            np.ndarray:
-
-        Shapes:
-            [H, W] -> [3, H, W]
-
-        """
-        image = cls._to_2channels(image)
-
-        rgb = plt.get_cmap("jet")(image)[:, :, :3]
+        rgb = plt.get_cmap(heatmap_type.value)(mask)[:, :, :3]
         return rgb.astype(np.float32).transpose((2, 0, 1))
 
     @classmethod

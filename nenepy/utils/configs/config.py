@@ -1,10 +1,6 @@
-import pprint
-from collections import OrderedDict
+import shutil
+from importlib import import_module
 from pathlib import Path
-
-from nenepy.utils import yaml
-
-from natsort import natsorted
 
 from nenepy.utils.dictionary import AttrDict
 
@@ -16,21 +12,7 @@ class Config(AttrDict):
     #   Instance Method (Public)
     #
     # ==================================================================================================
-    def import_yaml(self, yaml_file_path):
-        """
-
-        Args:
-            yaml_file_path (Path or str): yamlファイルのパス
-
-        """
-        with open(yaml_file_path, "r") as f:
-            yaml_cfg = AttrDict(yaml.safe_load(f))
-        self._recursive_merge(self, yaml_cfg)
-
-    def merge_cfg_from_cfg(self, cfg_other):
-        self._recursive_merge(self, cfg_other)
-
-    def output_config(self, file_dir, file_name):
+    def output_config(self, file_dir):
         """
 
         Args:
@@ -43,12 +25,28 @@ class Config(AttrDict):
         if not file_dir.exists():
             file_dir.mkdir(parents=True)
 
-        with open(file_dir.joinpath(file_name), "w") as f:
-            cfg_dict = AttrDict()
-            cfg_dict.merge(self)
-            out_dict = self._to_output_format(cfg_dict)
+        shutil.copy(self._PY_FILE, file_dir)
 
-            yaml.dump(out_dict, f, default_flow_style=False)
+    @staticmethod
+    def load_py(py_file):
+        if Path(py_file).suffix != ".py":
+            raise ValueError(f"{py_file} is not '.py'")
+
+        module = import_module(py_file[:-3].replace("/", "."))
+        configs = []
+        for key, value in module.__dict__.items():
+            if isinstance(value, Config):
+                configs.append((key, value))
+
+        if len(configs) != 1:
+            raise ValueError(f"{py_file} contains some Config class. {[c[0] for c in configs]}")
+
+        cfg = configs[0][1]
+
+        cfg._PY_FILE = py_file
+
+        cfg.to_immutable()
+        return cfg
 
     # ==================================================================================================
     #
