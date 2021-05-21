@@ -14,12 +14,13 @@ class CheckPointer:
         self._save_dir = Path(save_dir)
         self._model = model
         self._optimizer = optimizer
-        self._checkpoints = []
+        self._latest_checkpoint = None
+        self._score_checkpoints = []
         self._n_saves = n_saves
         self._needs_load_checkpoints = needs_load_checkpoints
 
         if self._needs_load_checkpoints:
-            self._checkpoints = self._load_checkpoints(self._save_dir, self._n_saves)
+            self._latest_checkpoint, self._score_checkpoints = self._load_checkpoints(self._save_dir, self._n_saves)
         else:
             if self._save_dir.exists():
                 shutil.rmtree(self._save_dir)
@@ -32,38 +33,38 @@ class CheckPointer:
     #
     # ==================================================================================================
     def add_checkpoint(self, score, epoch, **kwargs):
-        if self._needs_generate_checkpoint(score):
-            checkpoint = self._create_checkpoint(score, epoch, **kwargs)
-            checkpoint.save()
+        if self._is_higher_score_checkpoint(score):
+            score_checkpoint = self._create_score_checkpoint(score, epoch, **kwargs)
+            score_checkpoint.save()
             if self._need_replace():
-                self._checkpoints[-1].delete()
-                self._checkpoints[-1] = checkpoint
+                self._score_checkpoints[-1].delete()
+                self._score_checkpoints[-1] = score_checkpoint
             else:
-                self._checkpoints.append(checkpoint)
+                self._score_checkpoints.append(score_checkpoint)
 
-            self._checkpoints = sorted(self._checkpoints, reverse=True, key=lambda x: x.score)
+            self._score_checkpoints = sorted(self._score_checkpoints, reverse=True, key=lambda x: x.score)
 
-    def load_checkpoint(self, mode):
+        latest_checkpoint = self._create_latest_checkpoint(score, epoch, **kwargs)
+        latest_checkpoint.save()
+        self._latest_checkpoint = latest_checkpoint
+
+    def load_checkpoint(self, check_point_type=CheckPointType.LATEST):
         """
 
         Args:
-            mode (CheckPointType):
+            check_point_type (CheckPointType):
 
         Returns:
             CheckPoint:
 
         """
-        if mode == CheckPointType.LATEST:
-            return self.load_latest_checkpoint()
-        elif mode == CheckPointType.BEST_SCORE:
-            return self.load_best_score_checkpoint()
+        if check_point_type == CheckPointType.LATEST:
+            checkpoint = self._load_latest_checkpoint()
+        elif check_point_type == CheckPointType.BEST_SCORE:
+            checkpoint = self._load_best_score_checkpoint()
 
-    def load_best_score_checkpoint(self):
-        checkpoint = self._checkpoints[0]
-        return checkpoint
-
-    def load_latest_checkpoint(self):
-        checkpoint = sorted(self._checkpoints, reverse=True, key=lambda x: x.epoch)[0]
+        self._model.load_state_dict(checkpoint.model_state_dict)
+        self._optimizer.load_state_dict(checkpoint.optimizer_state_dict)
         return checkpoint
 
     # ==================================================================================================
@@ -71,19 +72,33 @@ class CheckPointer:
     #   Instance Method (Private)
     #
     # ==================================================================================================
-    def _create_checkpoint(self, score, epoch, **kwargs):
-        file_name = self._to_file_name(score, epoch)
+    def _load_best_score_checkpoint(self):
+        checkpoint = self._score_checkpoints[0]
+        return checkpoint
+
+    def _load_latest_checkpoint(self):
+        checkpoint = sorted(self._score_checkpoints, reverse=True, key=lambda x: x.epoch)[0]
+        return checkpoint
+
+    def _create_latest_checkpoint(self, score, epoch, **kwargs):
+        file_name = self._to_latest_file_name()
         path = self._save_dir.joinpath(file_name)
         checkpoint = CheckPoint.generate(path, self._model, self._optimizer, score, epoch, **kwargs)
         return checkpoint
 
-    def _needs_generate_checkpoint(self, score):
-        if (len(self._checkpoints) < self._n_saves) or (score > self._checkpoints[-1].score):
+    def _create_score_checkpoint(self, score, epoch, **kwargs):
+        file_name = self._to_score_file_name(score, epoch)
+        path = self._save_dir.joinpath(file_name)
+        checkpoint = CheckPoint.generate(path, self._model, self._optimizer, score, epoch, **kwargs)
+        return checkpoint
+
+    def _is_higher_score_checkpoint(self, score):
+        if (len(self._score_checkpoints) < self._n_saves) or (self._score_checkpoints[-1].score < score):
             return True
         return False
 
     def _need_replace(self):
-        return len(self._checkpoints) >= self._n_saves
+        return len(self._score_checkpoints) >= self._n_saves
 
     # ==================================================================================================
     #
@@ -91,8 +106,12 @@ class CheckPointer:
     #
     # ==================================================================================================
     @classmethod
-    def _to_file_name(cls, score, epoch):
+    def _to_score_file_name(cls, score, epoch):
         return f"checkpoint_epoch={epoch}_score={score:.4f}{cls._SUFFIX}"
+
+    @classmethod
+    def _to_latest_file_name(cls):
+        return f"checkpoint_latest{cls._SUFFIX}"
 
     @classmethod
     def _load_checkpoints(cls, save_dir, n_load_checkpoint):
@@ -107,16 +126,19 @@ class CheckPointer:
         if not save_dir.exists():
             raise FileNotFoundError(save_dir)
 
-        checkpoints = []
+        latest_score = None
+        score_checkpoints = []
         for file in save_dir.iterdir():
             if file.is_file() and file.suffix == cls._SUFFIX:
-                checkpoint = CheckPoint.load(file)
-                checkpoints.append(checkpoint)
+                if "latest" in file.stem:
+                    latest_score = CheckPoint.load(file)
+                else:
+                    score_checkpoints.append(CheckPoint.load(file))
 
-        if len(checkpoints) > 0:
-            checkpoints = sorted(checkpoints, reverse=True, key=lambda x: x.score)
+        if len(score_checkpoints) > 0:
+            score_checkpoints = sorted(score_checkpoints, reverse=True, key=lambda x: x.score)
 
-        if len(checkpoints) > n_load_checkpoint:
-            checkpoints = checkpoints[:n_load_checkpoint]
+        if len(score_checkpoints) > n_load_checkpoint:
+            score_checkpoints = score_checkpoints[:n_load_checkpoint]
 
-        return checkpoints
+        return latest_score, score_checkpoints
