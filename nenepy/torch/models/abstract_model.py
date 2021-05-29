@@ -110,9 +110,11 @@ class AbstractModel(metaclass=ABCMeta):
         if isinstance(self._schedulers, dict):
             for module in self._network_modules.values():
                 module.train(mode)
+                module.requires_grad_(mode)
         else:
             for module in self._network_modules:
                 module.train(mode)
+                module.requires_grad_(mode)
 
     def validate_mode(self):
         self.train_mode(False)
